@@ -1,0 +1,6 @@
+config.json
+.env
+encrypt-config.js
+README.md
+*.log
+/tests

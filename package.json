@@ -1,0 +1,24 @@
+{
+  "name": "marcaciones",
+  "version": "1.0.0",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "encrypt-config": "node encrypt-config.js",
+    "build": "npm run encrypt-config && electron-packager . MarcajesApp --platform=win32 --arch=x64 --out=dist --overwrite --asar && copy config.enc dist\\MarcajesApp-win32-x64\\config.enc"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "dependencies": {
+    "dotenv": "^16.5.0",
+    "electron-fetch": "^1.9.1",
+    "fetch-cookie": "^3.1.0",
+    "tough-cookie": "^5.1.2"
+  },
+  "devDependencies": {
+    "electron": "^36.2.1",
+    "electron-packager": "^17.1.2"
+  }
+}
