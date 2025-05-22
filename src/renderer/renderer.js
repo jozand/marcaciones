@@ -169,20 +169,25 @@ document.addEventListener('DOMContentLoaded', () => {
   fi.value = new Date(hoy.getFullYear(), hoy.getMonth(), 1).toISOString().split('T')[0];
   ff.value = new Date(hoy.getFullYear(), hoy.getMonth() + 1, 0).toISOString().split('T')[0];
 
-  const wrapper  = document.getElementById('gafete-wrapper');
-  const poolInfo = window.usuario.obtenerPoolInfo();
-  const miInfo   = window.usuario.obtenerMiInfo();
+  const wrapper       = document.getElementById('gafete-wrapper');
+  const btnConsultar  = document.getElementById('btn');
+  const poolInfo      = window.usuario.obtenerPoolInfo();
+  const miInfo        = window.usuario.obtenerMiInfo();
 
+  // Limpia el wrapper
   wrapper.innerHTML = '';
+
+  // Creamos siempre un <select>
   const sel = document.createElement('select');
   sel.id        = 'empSelect';
   sel.className = 'border rounded px-3 py-2 bg-white w-full';
 
   if (poolInfo && poolInfo.length > 0) {
-    const defaultOption = new Option('Seleccione un empleado', '');
-    defaultOption.disabled = true;
-    defaultOption.selected = true;
-    sel.appendChild(defaultOption);
+    // ——— Usuario del pool: opción por defecto + listado del pool ———
+    const opt = new Option('Seleccione un empleado', '');
+    opt.disabled = true;
+    opt.selected = true;
+    sel.appendChild(opt);
 
     poolInfo.forEach(info => {
       const label = `${info.nombre} (${info.gafete}) — ${info.usuario}`;
@@ -192,28 +197,45 @@ document.addEventListener('DOMContentLoaded', () => {
     sel.addEventListener('change', () => {
       window.__empCode   = sel.value;
       window.__empNombre = sel.options[sel.selectedIndex].text.split(' (')[0];
+      btnConsultar.disabled = false;
+      btnConsultar.classList.remove('opacity-40', 'cursor-not-allowed');
+
+      // Limpia la tabla
+      document.getElementById('tbody').innerHTML = '';
+      setExportEnabled(false);
     });
 
-    wrapper.appendChild(sel);
-    sel.dispatchEvent(new Event('change'));
+    btnConsultar.disabled = true;
+    btnConsultar.classList.add('opacity-40', 'cursor-not-allowed');
 
   } else if (miInfo) {
+    // ——— Usuario normal: solo una opción, select deshabilitado ———
     const label = `${miInfo.nombre} (${miInfo.gafete}) — ${miInfo.usuario}`;
-    const opt = new Option(label, miInfo.gafete);
-    sel.appendChild(opt);
+    sel.appendChild(new Option(label, miInfo.gafete));
     sel.disabled = true;
+
+    // Preseleccionamos sus datos globales
     window.__empCode   = miInfo.gafete;
     window.__empNombre = miInfo.nombre;
-    wrapper.appendChild(sel);
 
+    btnConsultar.disabled = false;
+    btnConsultar.classList.remove('opacity-40', 'cursor-not-allowed');
   } else {
+    // ——— Usuario no registrado ———
     const opt = new Option('Usuario no registrado', '');
+    opt.disabled = true;
+    opt.selected = true;
     sel.appendChild(opt);
     sel.disabled = true;
-    sel.classList.add('border-red-500');
-    wrapper.appendChild(sel);
+
+    btnConsultar.disabled = true;
+    btnConsultar.classList.add('opacity-40', 'cursor-not-allowed');
   }
+
+  wrapper.appendChild(sel);
 });
+
+
 
 /* ---------- 6. Botón “Exportar” -------------------------------------- */
 btnExport.addEventListener('click', () => {
