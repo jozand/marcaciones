@@ -39,6 +39,10 @@ exports.usuariosGafete = {
   SANZOATEGUI: "28344"
 };
 
+exports.pools = {
+  JAJCAN: ['DPALMA', 'WAVELASQUEZ', 'MFESTRADA', 'JAJCAN']
+};
+
 exports.infoEmpleados = [
   { gafete: 28344, nombre: 'SIONIS GABRIELA ANZOÁTEGUI SALAZAR',          puesto: 'ANALISTA III',                              usuario: 'SANZOATEGUI' },
   { gafete: 28365, nombre: 'MARICARMEN DEL ROSARIO VELÁSQUEZ',            puesto: 'SECRETARIA EJECUTIVA I',                     usuario: 'MDVELASQUEZ' },

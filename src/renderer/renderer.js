@@ -7,7 +7,6 @@ const circle     = document.getElementById('circle');
 const statusSpan = document.getElementById('status');
 const btnExport  = document.getElementById('btnExport');
 
-/* Helper para habilitar / deshabilitar el botón Exportar */
 function setExportEnabled(enabled) {
   if (enabled) {
     btnExport.removeAttribute('disabled');
@@ -17,7 +16,7 @@ function setExportEnabled(enabled) {
     btnExport.classList.add('opacity-40', 'cursor-not-allowed');
   }
 }
-setExportEnabled(false);                      // deshabilitado al cargar
+setExportEnabled(false);
 
 /* ---------- 1. Indicador de conexión JWT ----------------------------- */
 window.api.ensureToken()
@@ -45,16 +44,13 @@ function render(filas) {
     const esPermiso    = !!f.permiso;
     const sinMarcacion = !f.entrada && !f.salida && !esPermiso;
 
-    /* Colores iniciales */
     let claseEnt  = 'text-gray-400 italic';
     let claseSal  = 'text-gray-400 italic';
-    let claseHoras= sinMarcacion ? 'text-gray-400 italic'
-                                 : 'text-gray-800 font-bold';
+    let claseHoras= sinMarcacion ? 'text-gray-400 italic' : 'text-gray-800 font-bold';
 
-    if (esPermiso) {                                    // Permiso → azul
-      claseEnt = claseSal = 'text-blue-600 font-semibold';
-      claseHoras        = 'text-blue-600 font-semibold';
-    } else if (!sinMarcacion) {                         // Tarde / temprano
+    if (esPermiso) {
+      claseEnt = claseSal = claseHoras = 'text-blue-600 font-semibold';
+    } else if (!sinMarcacion) {
       const [hE, mE] = (f.entrada || '00:00').split(':').map(Number);
       const [hS, mS] = (f.salida  || '00:00').split(':').map(Number);
       const tarde  = hE > 8 || (hE === 8 && mE > 0);
@@ -64,29 +60,19 @@ function render(filas) {
     }
 
     const horasHtml = esPermiso
-      ? `${f.permiso.ini}-${f.permiso.fin}
-         <span class="ml-1 text-blue-500 cursor-help"
-               title="${f.permiso.cat} – ${f.permiso.reason}">
-           ℹ︎
-         </span>`
+      ? `${f.permiso.ini}-${f.permiso.fin}<span class="ml-1 text-blue-500 cursor-help" title="${f.permiso.cat} – ${f.permiso.reason}">ℹ︎</span>`
       : (f.horas || '0.0 h');
 
     tr.innerHTML = `
       <td class="border p-3 text-sm text-gray-800 font-medium">${f.dia}</td>
-      <td class="border p-3 text-sm ${claseEnt} text-center">
-        ${f.entrada || (esPermiso ? '—' : '-- sin marcación --')}
-      </td>
-      <td class="border p-3 text-sm ${claseSal} text-center">
-        ${f.salida  || (esPermiso ? '—' : '-- sin marcación --')}
-      </td>
-      <td class="border p-3 text-sm text-right ${claseHoras}">
-        ${horasHtml}
-      </td>
+      <td class="border p-3 text-sm ${claseEnt} text-center">${f.entrada || (esPermiso ? '—' : '-- sin marcación --')}</td>
+      <td class="border p-3 text-sm ${claseSal} text-center">${f.salida  || (esPermiso ? '—' : '-- sin marcación --')}</td>
+      <td class="border p-3 text-sm text-right ${claseHoras}">${horasHtml}</td>
     `;
     tbody.appendChild(tr);
   });
 
-  window.__filasTabla = filas;               // usado por exportar
+  window.__filasTabla = filas;
 }
 
 /* ---------- 3. Utilidades de fechas ---------------------------------- */
@@ -107,7 +93,7 @@ function obtenerDiasHabilesMes(anio, mes) {
 
 /* ---------- 4. Botón “Consultar” ------------------------------------- */
 document.getElementById('btn').addEventListener('click', async () => {
-  const empCode = document.getElementById('emp').value.trim();
+  const empCode = String(window.__empCode ?? '').trim();
   const fi = document.getElementById('fi').value;
   const ff = document.getElementById('ff').value;
 
@@ -116,17 +102,16 @@ document.getElementById('btn').addEventListener('click', async () => {
     return;
   }
 
-  setExportEnabled(false);                    // desactiva mientras carga
+  setExportEnabled(false);
 
   try {
-    /* A) Asistencia --------------------------------------------------- */
     const empleado = await window.api.obtenerEmpleadoDesdePersonnel(empCode);
     const reporte  = await window.api.obtenerReporteAsistencia(empleado.id, fi, ff);
 
     const mapa = Object.fromEntries(
       reporte.map(r => {
         const [dd, mm, yyyy] = r.att_date.split('-');
-        const fechaKey = `${dd.padStart(2,'0')}/${mm.padStart(2,'0')}/${yyyy}`;
+        const fechaKey = `${dd}/${mm}/${yyyy}`;
         return [fechaKey, {
           dia    : fechaKey,
           entrada: r.first_punch || '',
@@ -136,7 +121,6 @@ document.getElementById('btn').addEventListener('click', async () => {
       })
     );
 
-    /* B) Permisos ----------------------------------------------------- */
     const permisos = await window.api.obtenerPermisos(empCode, fi, ff);
     permisos.forEach(p => {
       const [startDate, startTime] = p.start_time.split(' ');
@@ -157,16 +141,14 @@ document.getElementById('btn').addEventListener('click', async () => {
       };
     });
 
-    /* C) Completar días hábiles -------------------------------------- */
     const [anio, mes] = fi.split('-').map(Number);
     const filas = obtenerDiasHabilesMes(anio, mes).map(d =>
       mapa[d] || { dia:d, entrada:'', salida:'', horas:'' }
     );
 
     render(filas);
-    setExportEnabled(true);                 // habilita exportar
+    setExportEnabled(true);
 
-    /* D) Variables para el PDF --------------------------------------- */
     window.__empCode   = empCode;
     window.__empNombre = window.catalogo?.porGafete(empCode)?.nombre || '';
     window.__startDate = fi;
@@ -181,23 +163,50 @@ document.getElementById('btn').addEventListener('click', async () => {
 
 /* ---------- 5. Precargar fechas y gafete ----------------------------- */
 document.addEventListener('DOMContentLoaded', () => {
-  const fiInput = document.getElementById('fi');
-  const ffInput = document.getElementById('ff');
+  const fi = document.getElementById('fi');
+  const ff = document.getElementById('ff');
   const hoy = new Date();
-  fiInput.value = new Date(hoy.getFullYear(), hoy.getMonth(), 1)
-                    .toISOString().split('T')[0];
-  ffInput.value = new Date(hoy.getFullYear(), hoy.getMonth()+1, 0)
-                    .toISOString().split('T')[0];
+  fi.value = new Date(hoy.getFullYear(), hoy.getMonth(), 1).toISOString().split('T')[0];
+  ff.value = new Date(hoy.getFullYear(), hoy.getMonth() + 1, 0).toISOString().split('T')[0];
 
-  const inputGafete = document.getElementById('emp');
-  const gafete = window.usuario.obtenerGafete();
-  if (gafete) {
-    inputGafete.value = gafete;
-    inputGafete.readOnly = true;
-    inputGafete.classList.add('bg-gray-200','text-gray-800');
+  const wrapper  = document.getElementById('gafete-wrapper');
+  const poolInfo = window.usuario.obtenerPoolInfo();
+  const miInfo   = window.usuario.obtenerMiInfo();
+
+  wrapper.innerHTML = '';
+  const sel = document.createElement('select');
+  sel.id        = 'empSelect';
+  sel.className = 'border rounded px-3 py-2 bg-white w-full';
+
+  if (poolInfo && poolInfo.length > 0) {
+    poolInfo.forEach(info => {
+      const label = `${info.nombre} (${info.gafete}) — ${info.usuario}`;
+      sel.appendChild(new Option(label, info.gafete));
+    });
+
+    sel.addEventListener('change', () => {
+      window.__empCode   = sel.value;
+      window.__empNombre = sel.options[sel.selectedIndex].text.split(' (')[0];
+    });
+
+    wrapper.appendChild(sel);
+    sel.dispatchEvent(new Event('change'));
+
+  } else if (miInfo) {
+    const label = `${miInfo.nombre} (${miInfo.gafete}) — ${miInfo.usuario}`;
+    const opt = new Option(label, miInfo.gafete);
+    sel.appendChild(opt);
+    sel.disabled = true;
+    window.__empCode   = miInfo.gafete;
+    window.__empNombre = miInfo.nombre;
+    wrapper.appendChild(sel);
+
   } else {
-    inputGafete.placeholder = 'Usuario no registrado';
-    inputGafete.classList.add('border','border-red-500');
+    const opt = new Option('Usuario no registrado', '');
+    sel.appendChild(opt);
+    sel.disabled = true;
+    sel.classList.add('border-red-500');
+    wrapper.appendChild(sel);
   }
 });
 
@@ -206,7 +215,6 @@ btnExport.addEventListener('click', () => {
   const filas = window.__filasTabla;
   if (!filas?.length) return;
 
-  /* === Datos de cabecera =========================================== */
   const gafete    = window.__empCode   ?? '';
   const nombre    = window.__empNombre ?? '';
   const fechaIni  = (window.__startDate ?? '').split('-').reverse().join('/');
@@ -215,7 +223,6 @@ btnExport.addEventListener('click', () => {
     day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit'
   });
 
-  /* === Cuerpo de la tabla ========================================== */
   const body = [
     [ {text:'Fecha',style:'th'}, {text:'Entrada',style:'th'},
       {text:'Salida',style:'th'}, {text:'Horas/Permiso',style:'th'} ],
@@ -237,7 +244,6 @@ btnExport.addEventListener('click', () => {
     })
   ];
 
-  /* === Definición PDF ============================================== */
   const docDefinition = {
     pageMargins:[40,60,40,60],
     info:{ title:`reporte_${gafete}_${fechaIni.replace(/\//g,'-')}_${fechaFin.replace(/\//g,'-')}` },
@@ -246,7 +252,7 @@ btnExport.addEventListener('click', () => {
       { text:`Gafete: ${gafete}`,               margin:[0,0,0,2] },
       { text:`Nombre: ${nombre}`,               margin:[0,0,0,2] },
       { text:`Rango de fechas: ${fechaIni} – ${fechaFin}`, margin:[0,0,0,2] },
-      { text:`Exportado el: ${exportado}`,      margin:[0,0,0,18], style:'nota' },  // ← 18 pt
+      { text:`Exportado el: ${exportado}`,      margin:[0,0,0,18], style:'nota' },
       {
         columns:[
           { width:'*',  text:'' },
