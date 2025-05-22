@@ -15,6 +15,7 @@
     "dotenv": "^16.5.0",
     "electron-fetch": "^1.9.1",
     "fetch-cookie": "^3.1.0",
+    "pdfmake": "^0.2.20",
     "tough-cookie": "^5.1.2"
   },
   "devDependencies": {
