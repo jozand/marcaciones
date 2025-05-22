@@ -206,44 +206,70 @@ btnExport.addEventListener('click', () => {
   const filas = window.__filasTabla;
   if (!filas?.length) return;
 
+  /* === Datos de cabecera =========================================== */
   const gafete    = window.__empCode   ?? '';
   const nombre    = window.__empNombre ?? '';
-  const fechaIni  = window.__startDate ?? '';
-  const fechaFin  = window.__endDate   ?? '';
-  const exportado = new Date().toLocaleString('es-GT');
+  const fechaIni  = (window.__startDate ?? '').split('-').reverse().join('/');
+  const fechaFin  = (window.__endDate   ?? '').split('-').reverse().join('/');
+  const exportado = new Date().toLocaleString('es-GT', {
+    day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit'
+  });
 
+  /* === Cuerpo de la tabla ========================================== */
   const body = [
-    ['Fecha', 'Entrada', 'Salida', 'Horas/Permiso'],
-    ...filas.map(f => [
-      f.dia,
-      f.entrada || '',
-      f.salida  || '',
-      f.permiso ? `${f.permiso.ini} – ${f.permiso.fin}` : (f.horas || '')
-    ])
+    [ {text:'Fecha',style:'th'}, {text:'Entrada',style:'th'},
+      {text:'Salida',style:'th'}, {text:'Horas/Permiso',style:'th'} ],
+    ...filas.map(f=>{
+      const esPermiso = !!f.permiso;
+      const [hE=0,mE=0] = (f.entrada||'').split(':').map(Number);
+      const [hS=0,mS=0] = (f.salida ||'').split(':').map(Number);
+      const entradaTarde = !esPermiso && (hE>8||(hE===8&&mE>0));
+      const salidaPronto = !esPermiso && (hS<15||(hS===15&&mS<30));
+      return [
+        { text:f.dia,            style:'td' },
+        { text:f.entrada||'—',   style:'td',
+          color: esPermiso?'blue':(entradaTarde?'red':undefined) },
+        { text:f.salida ||'—',   style:'td',
+          color: esPermiso?'blue':(salidaPronto?'red':undefined) },
+        { text: esPermiso?`${f.permiso.ini} – ${f.permiso.fin}`:(f.horas||''),
+          style:'td', color: esPermiso?'blue':undefined, noWrap:false }
+      ];
+    })
   ];
 
+  /* === Definición PDF ============================================== */
   const docDefinition = {
-    pageMargins: [40, 60, 40, 60],
-    content: [
-      { text: 'REPORTE DE ASISTENCIA', style: 'titulo' },
-      { text: `Gafete: ${gafete}`,  margin: [0,0,0,2] },
-      { text: `Nombre: ${nombre}`, margin: [0,0,0,2] },
-      { text: `Rango de fechas: ${fechaIni} – ${fechaFin}`, margin: [0,0,0,2] },
-      { text: `Exportado el: ${exportado}`, margin: [0,0,0,10], fontSize: 9, color: '#555' },
+    pageMargins:[40,60,40,60],
+    info:{ title:`reporte_${gafete}_${fechaIni.replace(/\//g,'-')}_${fechaFin.replace(/\//g,'-')}` },
+    content:[
+      { text:'REPORTE DE ASISTENCIA', style:'titulo' },
+      { text:`Gafete: ${gafete}`,               margin:[0,0,0,2] },
+      { text:`Nombre: ${nombre}`,               margin:[0,0,0,2] },
+      { text:`Rango de fechas: ${fechaIni} – ${fechaFin}`, margin:[0,0,0,2] },
+      { text:`Exportado el: ${exportado}`,      margin:[0,0,0,18], style:'nota' },  // ← 18 pt
       {
-        style: 'tabla',
-        table: { headerRows: 1, widths: ['*', 60, 60, 80], body },
-        layout: 'lightHorizontalLines'
+        columns:[
+          { width:'*',  text:'' },
+          {
+            width:'auto',
+            table:{ headerRows:1, widths:[70,60,60,90], body },
+            layout:{
+              fillColor:(row)=> row===0 ? '#E5E7EB' : null,
+              hLineWidth:()=>0.5, vLineWidth:()=>0.5,
+              hLineColor:()=>'#BDBDBD', vLineColor:()=>'#BDBDBD'
+            }
+          },
+          { width:'*',  text:'' }
+        ]
       }
     ],
-    styles: {
-      titulo: { fontSize: 14, bold: true, alignment: 'center', margin: [0,0,0,10] },
-      tabla:  { fontSize: 9 }
+    styles:{
+      titulo:{ fontSize:14, bold:true, alignment:'center', margin:[0,0,0,12] },
+      nota  :{ fontSize:8,  color:'#555' },
+      th    :{ fontSize:9,  bold:true, alignment:'center', margin:[0,2,0,2] },
+      td    :{ fontSize:8,  alignment:'center', margin:[0,2,0,2] }
     }
   };
 
-  window.pdfMake
-  .createPdf(docDefinition)
-  .open();   // ← abre el PDF en una pestaña / ventana nueva
-
+  window.pdfMake.createPdf(docDefinition).open();
 });
