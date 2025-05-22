@@ -82,6 +82,10 @@ document.getElementById('btn').addEventListener('click', async () => {
     const empleado = await window.api.obtenerEmpleadoDesdePersonnel(empCode);
     const reporte = await window.api.obtenerReporteAsistencia(empleado.id, fi, ff);
 
+    const permisos = await window.api.obtenerPermisos(empCode, fi, ff);
+    console.log(permisos);
+    
+
     // Normalizar las fechas del backend: "05-05-2025" => "05/05/2025"
     const mapa = Object.fromEntries(
       reporte.map(d => {

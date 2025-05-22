@@ -1,0 +1,69 @@
+// bioTimeClient.js  (proceso principal)
+const { ipcMain, app } = require('electron');
+const path   = require('path');
+const fs     = require('fs');
+const crypto = require('crypto');
+
+/* ── 1.  carga la lógica pura de BioTime -------------------------------- */
+const bt = require(path.join(__dirname, 'src', 'api', 'biotime.js'));
+
+/* ── 2.  función robusta para leer la configuración --------------------- */
+function cargarConfig() {
+  const dir      = app.getAppPath();              // raíz de la app
+  const encPath  = path.join(dir, 'config.enc');
+  const jsonPath = path.join(dir, 'config.json');
+
+  /* a) intentar descifrar config.enc ----------------------------------- */
+  if (fs.existsSync(encPath)) {
+    try {
+      const bin = fs.readFileSync(encPath);
+      const key = crypto.scryptSync('Org@n!ism0-Jud!ciAl', 'salt', 32); // misma key
+      const iv  = bin.slice(0, 16);
+      const data= bin.slice(16);
+
+      const decipher = crypto.createDecipheriv('aes-256-cbc', key, iv);
+      const plain = Buffer.concat([decipher.update(data), decipher.final()]);
+      return JSON.parse(plain.toString());
+    } catch (err) {
+      console.warn('⚠️  No se pudo descifrar config.enc:', err.message);
+    }
+  }
+
+  /* b) fallback: config.json ------------------------------------------- */
+  if (fs.existsSync(jsonPath)) {
+    try {
+      return JSON.parse(fs.readFileSync(jsonPath, 'utf8'));
+    } catch (err) {
+      console.warn('⚠️  Error leyendo config.json:', err.message);
+    }
+  }
+
+  /* c) último recurso: variables de entorno --------------------------- */
+  if (process.env.API_URL && process.env.API_USER && process.env.API_PASS) {
+    return {
+      API_URL : process.env.API_URL,
+      API_USER: process.env.API_USER,
+      API_PASS: process.env.API_PASS
+    };
+  }
+
+  /* d) sin config válida → abortamos ----------------------------------- */
+  throw new Error('No se encontró configuración válida (config.enc / json / .env)');
+}
+
+const cfg = cargarConfig();
+
+/* ── 3.  exponer funciones de BioTime vía IPC --------------------------- */
+ipcMain.handle('bt:token',    ()                       => bt.ensureToken(cfg));
+
+ipcMain.handle('bt:marc',     (_e, emp, ini, fin)      =>
+                                bt.obtenerMarcaciones(cfg, emp, ini, fin));
+
+ipcMain.handle('bt:empleado', (_e, emp)                =>
+                                bt.obtenerEmpleadoDesdePersonnel(cfg, emp));
+
+ipcMain.handle('bt:reporte',  (_e, id, ini, fin)       =>
+                                bt.obtenerReporteAsistencia(cfg, id, ini, fin));
+
+ipcMain.handle('bt:permisos', (_e, emp, ini, fin, p=1, l=27) =>
+                                bt.obtenerPermisos(cfg, emp, ini, fin, p, l));

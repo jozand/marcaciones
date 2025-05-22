@@ -1,5 +1,6 @@
 const { app, BrowserWindow } = require('electron');
 const path = require('path');
+require('./bioTimeClient.js');
 
 function createWindow() {
   const win = new BrowserWindow({
@@ -7,13 +8,12 @@ function createWindow() {
     height: 800,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
-    contextIsolation: true,
-    sandbox: false
+      contextIsolation: true,
+      sandbox: false
     }
   });
-  
-  //win.removeMenu();
 
+  // win.removeMenu();   // si lo necesitas
   win.loadFile(path.join(__dirname, 'src/views/index.html'));
 }
 
