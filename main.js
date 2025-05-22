@@ -13,7 +13,8 @@ function createWindow() {
     }
   });
 
-  //win.removeMenu();   // si lo necesitas
+  win.maximize();
+  win.removeMenu();  
   win.loadFile(path.join(__dirname, 'src/views/index.html'));
 }
 

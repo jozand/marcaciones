@@ -36,11 +36,9 @@ exports.usuariosGafete = {
   WFLOPEZ: "18578",
   ECALVILLO: "21143",
   ABFRANCO: "21261",
-  SANZOATEGUI: "28344"
-};
-
-exports.pools = {
-  JAJCAN: ['DPALMA', 'WAVELASQUEZ', 'MFESTRADA', 'JAJCAN']
+  SANZOATEGUI: "28344",
+  CHHERNANDEZ: "27066",
+  JAMIRANDA: "31623"
 };
 
 exports.infoEmpleados = [
@@ -81,5 +79,29 @@ exports.infoEmpleados = [
   { gafete: 15802, nombre: 'ROSA ODILIA NAVASSI DÍAZ',                    puesto: 'SUPERVISOR DE AUDITORÍA',                    usuario: 'RNAVASSI' },
   { gafete: 18918, nombre: 'DAVID DE PAZ MARCHORRO',                      puesto: 'ANALISTA III',                               usuario: 'DDEPAZM' },
   { gafete: 25440, nombre: 'EDWIN ADOLFO SERRANO LEMUS',                  puesto: 'PILOTO I',                                   usuario: 'ESERRANO' },
-  { gafete: 25341, nombre: 'JOSÉ ÁNGEL REYES MORALES',                    puesto: 'ANALISTA III',                               usuario: 'JAREYES' }
+  { gafete: 25341, nombre: 'JOSÉ ÁNGEL REYES MORALES',                    puesto: 'ANALISTA III',                               usuario: 'JAREYES' },
+  { gafete: 27066, nombre: 'CARLOS HUMBERTO HERNANDEZ SILVA',             puesto: 'PILOTO I',                                   usuario: 'CHHERNANDEZ' },
+  { gafete: 31623, nombre: 'JOSE ANTONIO MIRANDA CORZO',                  puesto: 'CONSERJE-MENSAJERO',                         usuario: 'JAMIRANDA' }
 ];
+
+
+exports.pools = {
+  JAJCAN: ['DPALMA', 'WAVELASQUEZ', 'MFESTRADA', 'JAJCAN'],
+  ALMARROQUINT: [
+    'RCALITO', 'MAMADO', 'HASANCHEZ', 'ESERRANO',
+    'PEVELASQUEZ', 'MDVELASQUEZ', 'RSRODRIGUEZ', 'YNPEREZ',
+    'ALMARROQUINT', 'CHHERNANDEZ', 'JAMIRANDA'
+  ],
+  RNAVASSI: [
+    'ROESCOBAR', 'CTERCERO', 'ECALVILLO', 'ABFRANCO',
+    'SANZOATEGUI', 'RNAVASSI', 'RVALLADARES', 'HESTRADA'
+  ],
+  RRLOPEZ: [
+    'JEORDONEZ', 'SCGONZALEZ', 'OBERMUDEZ', 'RRLOPEZ', 'LEFLORES'
+  ],
+  WFLOPEZ: [
+    'WBAILON', 'SMOROZCOM', 'SJMENA', 'JAREYES',
+    'DDEPAZM', 'WFLOPEZ', 'CCRAMIREZ', 'YMENDEZ'
+  ],
+   CTSANCHEZ: exports.infoEmpleados.map(e => e.usuario.toUpperCase())
+};

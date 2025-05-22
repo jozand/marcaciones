@@ -179,6 +179,11 @@ document.addEventListener('DOMContentLoaded', () => {
   sel.className = 'border rounded px-3 py-2 bg-white w-full';
 
   if (poolInfo && poolInfo.length > 0) {
+    const defaultOption = new Option('Seleccione un empleado', '');
+    defaultOption.disabled = true;
+    defaultOption.selected = true;
+    sel.appendChild(defaultOption);
+
     poolInfo.forEach(info => {
       const label = `${info.nombre} (${info.gafete}) — ${info.usuario}`;
       sel.appendChild(new Option(label, info.gafete));
