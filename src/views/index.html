@@ -19,7 +19,20 @@
       <input id="emp" class="border p-2 w-full" placeholder="Gafete (emp_code)">
       <input id="fi" type="date" class="border p-2 w-full">
       <input id="ff" type="date" class="border p-2 w-full">
-      <button id="btn" class="w-full bg-blue-600 text-white py-2 rounded">Consultar</button>
+
+      <!-- contenedor horizontal para botones -->
+      <div class="flex gap-2">
+        <button id="btn"
+                class="flex-1 bg-blue-600 text-white py-2 rounded">
+          Consultar
+        </button>
+
+        <button id="btnExport"
+                class="flex-1 bg-emerald-600 text-white py-2 rounded opacity-40 cursor-not-allowed"
+                disabled>
+          Exportar
+        </button>
+      </div>
     </div>
 
     <table class="w-full mt-6 text-sm border">

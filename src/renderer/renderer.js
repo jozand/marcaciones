@@ -1,11 +1,25 @@
 /* --------------------------------------------------------------------- *
- *  renderer.js – muestra asistencia y permisos BioTime                  *
+ *  renderer.js – asistencia + permisos y exportación CSV                *
  * --------------------------------------------------------------------- */
 
-/* ---------- 1. Indicador de conexión JWT ----------------------------- */
+/* ========== 0. Referencias de elementos ============================== */
 const circle     = document.getElementById('circle');
 const statusSpan = document.getElementById('status');
+const btnExport  = document.getElementById('btnExport');
 
+/* Helper para habilitar / deshabilitar el botón Exportar */
+function setExportEnabled(enabled) {
+  if (enabled) {
+    btnExport.removeAttribute('disabled');
+    btnExport.classList.remove('opacity-40', 'cursor-not-allowed');
+  } else {
+    btnExport.setAttribute('disabled', 'true');
+    btnExport.classList.add('opacity-40', 'cursor-not-allowed');
+  }
+}
+setExportEnabled(false);                      // deshabilitado al cargar
+
+/* ---------- 1. Indicador de conexión JWT ----------------------------- */
 window.api.ensureToken()
   .then(() => {
     circle.className = 'w-4 h-4 rounded-full bg-green-500';
@@ -32,18 +46,15 @@ function render(filas) {
     const sinMarcacion = !f.entrada && !f.salida && !esPermiso;
 
     /* Colores iniciales */
-    let claseEnt  = 'text-gray-400 italic';
-    let claseSal  = 'text-gray-400 italic';
-    let claseHoras= sinMarcacion ? 'text-gray-400 italic'
-                                 : 'text-gray-800 font-bold';
+    let claseEnt = 'text-gray-400 italic';
+    let claseSal = 'text-gray-400 italic';
+    let claseHoras = sinMarcacion ? 'text-gray-400 italic'
+                                  : 'text-gray-800 font-bold';
 
-    /* — Permiso → azul — */
-    if (esPermiso) {
+    if (esPermiso) {                                   // Permiso → azul
       claseEnt = claseSal = 'text-blue-600 font-semibold';
       claseHoras         = 'text-blue-600 font-semibold';
-    }
-    /* — Llegada tarde / salida temprano — */
-    else if (!sinMarcacion) {
+    } else if (!sinMarcacion) {                         // Tarde / temprano
       const [hE, mE] = f.entrada.split(':').map(Number);
       const [hS, mS] = f.salida .split(':').map(Number);
       const tarde  = hE > 8 || (hE === 8 && mE > 0);
@@ -52,7 +63,6 @@ function render(filas) {
       claseSal = pronto ? 'text-red-600 font-semibold' : 'text-gray-800';
     }
 
-    /* Contenido columna Horas */
     const horasHtml = esPermiso
       ? `${f.permiso.ini}-${f.permiso.fin}
          <span class="ml-1 text-blue-500 cursor-help"
@@ -75,6 +85,8 @@ function render(filas) {
     `;
     tbody.appendChild(tr);
   });
+
+  window.__filasTabla = filas;               // usado por exportar
 }
 
 /* ---------- 3. Utilidades de fechas ---------------------------------- */
@@ -82,12 +94,11 @@ function obtenerDiasHabilesMes(anio, mes) {
   const dias = [];
   const fecha = new Date(anio, mes - 1, 1);
   while (fecha.getMonth() === mes - 1) {
-    const dSem = fecha.getDay();
-    if (dSem >= 1 && dSem <= 5) {                     // lunes-viernes
+    const d = fecha.getDay();
+    if (d >= 1 && d <= 5) {
       const dd = String(fecha.getDate()).padStart(2, '0');
       const mm = String(fecha.getMonth() + 1).padStart(2, '0');
-      const yyyy = fecha.getFullYear();
-      dias.push(`${dd}/${mm}/${yyyy}`);
+      dias.push(`${dd}/${mm}/${fecha.getFullYear()}`);
     }
     fecha.setDate(fecha.getDate() + 1);
   }
@@ -105,38 +116,34 @@ document.getElementById('btn').addEventListener('click', async () => {
     return;
   }
 
+  setExportEnabled(false);                    // ← desactiva mientras carga
+
   try {
-    /* --- A) Datos de asistencia -------------------------------------- */
+    /* A) Asistencia --------------------------------------------------- */
     const empleado = await window.api.obtenerEmpleadoDesdePersonnel(empCode);
     const reporte  = await window.api.obtenerReporteAsistencia(empleado.id, fi, ff);
 
-    /* mapa[fecha] = { entrada, salida, horas } */
     const mapa = Object.fromEntries(
-      reporte.map(d => {
-        const [dd, mm, yyyy] = d.att_date.split('-');
+      reporte.map(r => {
+        const [dd, mm, yyyy] = r.att_date.split('-');
         const fechaKey = `${dd.padStart(2,'0')}/${mm.padStart(2,'0')}/${yyyy}`;
-        return [ fechaKey, {
+        return [fechaKey, {
           dia    : fechaKey,
-          entrada: d.first_punch || '',
-          salida : d.last_punch  || '',
-          horas  : d.total_time?.toFixed(1) || ''
+          entrada: r.first_punch || '',
+          salida : r.last_punch  || '',
+          horas  : r.total_time?.toFixed(1) || ''
         }];
       })
     );
 
-    /* --- B) Permisos -------------------------------------------------- */
+    /* B) Permisos ----------------------------------------------------- */
     const permisos = await window.api.obtenerPermisos(empCode, fi, ff);
-
-    /* convertir a mapa fecha → info permiso */
     const permisosMapa = {};
     permisos.forEach(p => {
       const [startDate, startTime] = p.start_time.split(' ');
       const [endDate,   endTime  ] = p.end_time  .split(' ');
-
-      /* Tomamos solo la fecha de inicio; extender si manejas rangos */
       const [yyyy, mm, dd] = startDate.split('-');
       const fechaKey = `${dd}/${mm}/${yyyy}`;
-
       permisosMapa[fechaKey] = {
         ini   : startTime.slice(0,5),
         fin   : endTime.slice(0,5),
@@ -145,7 +152,6 @@ document.getElementById('btn').addEventListener('click', async () => {
       };
     });
 
-    /* fusionar permisos en mapa de asistencia ------------------------- */
     Object.entries(permisosMapa).forEach(([fecha, info]) => {
       mapa[fecha] = {
         dia     : fecha,
@@ -156,32 +162,30 @@ document.getElementById('btn').addEventListener('click', async () => {
       };
     });
 
-    /* --- C) Completar días hábiles ----------------------------------- */
-    const [anio, mes] = fi.split('-').map(Number);        // YYYY-MM-DD
-    const diasHabiles = obtenerDiasHabilesMes(anio, mes);
-    const filas = diasHabiles.map(dia => mapa[dia] || {
-      dia, entrada:'', salida:'', horas:''
-    });
+    /* C) Completar días hábiles -------------------------------------- */
+    const [anio, mes] = fi.split('-').map(Number);
+    const filas = obtenerDiasHabilesMes(anio, mes).map(d =>
+      mapa[d] || { dia: d, entrada:'', salida:'', horas:'' }
+    );
 
     render(filas);
+    setExportEnabled(true);                 // ← habilita exportar
   } catch (err) {
     alert(err.message);
     console.error('Error:', err);
+    setExportEnabled(false);
   }
 });
 
-/* ---------- 5. Precargar campos fecha y gafete ------------------------ */
+/* ---------- 5. Precargar fechas y gafete ----------------------------- */
 document.addEventListener('DOMContentLoaded', () => {
   const fiInput = document.getElementById('fi');
   const ffInput = document.getElementById('ff');
-
   const hoy = new Date();
-  const primerDia  = new Date(hoy.getFullYear(), hoy.getMonth(), 1);
-  const ultimoDia  = new Date(hoy.getFullYear(), hoy.getMonth()+1, 0);
-  const iso = f => f.toISOString().split('T')[0];
-
-  fiInput.value = iso(primerDia);
-  ffInput.value = iso(ultimoDia);
+  fiInput.value = new Date(hoy.getFullYear(), hoy.getMonth(), 1)
+                    .toISOString().split('T')[0];
+  ffInput.value = new Date(hoy.getFullYear(), hoy.getMonth()+1, 0)
+                    .toISOString().split('T')[0];
 
   const inputGafete = document.getElementById('emp');
   const gafete = window.usuario.obtenerGafete();
@@ -193,4 +197,32 @@ document.addEventListener('DOMContentLoaded', () => {
     inputGafete.placeholder = 'Usuario no registrado';
     inputGafete.classList.add('border','border-red-500');
   }
+});
+
+/* ---------- 6. Botón “Exportar” -------------------------------------- */
+btnExport.addEventListener('click', () => {
+  const filas = window.__filasTabla;
+  if (!filas || !filas.length) return;
+
+  const encabezados = ['Fecha','Entrada','Salida','Horas/Permiso'];
+  const csv = [
+    encabezados.join(',')
+  ].concat(
+    filas.map(f => [
+      f.dia,
+      f.entrada || '',
+      f.salida  || '',
+      f.permiso ? `${f.permiso.ini}-${f.permiso.fin}` : (f.horas || '')
+    ].map(v => `"${v}"`).join(','))
+  ).join('\n');
+
+  const blob = new Blob([csv], { type:'text/csv;charset=utf-8;' });
+  const url  = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `reporte_${Date.now()}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
 });
