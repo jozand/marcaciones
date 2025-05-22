@@ -11,7 +11,7 @@ exports.usuariosGafete = {
   ALMARROQUINT: "26788",
   MFESTRADA: "26985",
   YMENDEZ: "27054",
-  JAJCAN: "23547",
+  JAJCAN: "27557",
   DPALMA: "17357",
   WBAILON: "25488",
   SMOROZCOM: "28173",
