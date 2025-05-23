@@ -239,6 +239,7 @@ document.getElementById('btn').addEventListener('click', async () => {
 
       if (!tieneEntrada && !tieneSalida) {
         diasSinMarcaje++;
+        minutosTardiosDetectados += 450; // 7.5 horas = 450 minutos
         return;
       }
 
@@ -253,7 +254,6 @@ document.getElementById('btn').addEventListener('click', async () => {
 
       // Minutos tardíos por salida antes de 15:30
       if (tieneSalida) {
-        // Evita sumar si salida es antes o igual a entrada (caso anómalo)
         if (!tieneEntrada || f.salida > f.entrada) {
           const [hS, mS] = f.salida.split(':').map(Number);
           if (hS < 15 || (hS === 15 && mS < 30)) {
@@ -265,6 +265,7 @@ document.getElementById('btn').addEventListener('click', async () => {
     });
 
     const minutosNetos = Math.max(minutosTardiosDetectados - minutosAutorizados, 0);
+
 
 
 
@@ -385,54 +386,54 @@ btnExport.addEventListener('click', () => {
     day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit'
   });
 
+
   // =====================================
-  // Cálculo: Tiempo Tardío y Días sin marcaje
+  // Cálculo: Tiempo Tardío (para PDF)
   // =====================================
-  // =====================================
-// Cálculo: Tiempo Tardío (para PDF)
-// =====================================
-const minutosAutorizados = 30;
-let minutosTardiosDetectados = 0;
-let diasSinMarcaje = 0;
+  const minutosAutorizados = 30;
+  let minutosTardiosDetectados = 0;
+  let diasSinMarcaje = 0;
 
-const hoy = new Date();
-hoy.setHours(0, 0, 0, 0); // Reset hora
+  const hoy = new Date();
+  hoy.setHours(0, 0, 0, 0); // Reset hora
 
-filas.forEach(f => {
-  const [dd, mm, yyyy] = f.dia.split('/');
-  const fechaDia = new Date(`${yyyy}-${mm}-${dd}`);
-  if (fechaDia > hoy) return;
+  filas.forEach(f => {
+    const [dd, mm, yyyy] = f.dia.split('/');
+    const fechaDia = new Date(`${yyyy}-${mm}-${dd}`);
+    if (fechaDia > hoy) return;
 
-  const tieneEntrada = !!f.entrada;
-  const tieneSalida  = !!f.salida;
+    const tieneEntrada = !!f.entrada;
+    const tieneSalida  = !!f.salida;
 
-  if (!tieneEntrada && !tieneSalida) {
-    diasSinMarcaje++;
-    return;
-  }
-
-  // Entrada tardía después de las 08:00
-  if (tieneEntrada) {
-    const [hE, mE] = f.entrada.split(':').map(Number);
-    if (hE > 8 || (hE === 8 && mE > 0)) {
-      const minutosEntrada = (hE - 8) * 60 + mE;
-      minutosTardiosDetectados += minutosEntrada;
+    if (!tieneEntrada && !tieneSalida) {
+      diasSinMarcaje++;
+      minutosTardiosDetectados += 450; // 7.5 horas por ausencia
+      return;
     }
-  }
 
-  // Salida anticipada antes de 15:30 (si es válida respecto a entrada)
-  if (tieneSalida) {
-    if (!tieneEntrada || f.salida > f.entrada) {
-      const [hS, mS] = f.salida.split(':').map(Number);
-      if (hS < 15 || (hS === 15 && mS < 30)) {
-        const minutosSalida = (15 - hS) * 60 + (30 - mS);
-        minutosTardiosDetectados += minutosSalida;
+    // Entrada tardía después de las 08:00
+    if (tieneEntrada) {
+      const [hE, mE] = f.entrada.split(':').map(Number);
+      if (hE > 8 || (hE === 8 && mE > 0)) {
+        const minutosEntrada = (hE - 8) * 60 + mE;
+        minutosTardiosDetectados += minutosEntrada;
       }
     }
-  }
-});
 
-const minutosNetos = Math.max(minutosTardiosDetectados - minutosAutorizados, 0);
+    // Salida anticipada antes de 15:30 (si es válida respecto a entrada)
+    if (tieneSalida) {
+      if (!tieneEntrada || f.salida > f.entrada) {
+        const [hS, mS] = f.salida.split(':').map(Number);
+        if (hS < 15 || (hS === 15 && mS < 30)) {
+          const minutosSalida = (15 - hS) * 60 + (30 - mS);
+          minutosTardiosDetectados += minutosSalida;
+        }
+      }
+    }
+  });
+
+  const minutosNetos = Math.max(minutosTardiosDetectados - minutosAutorizados, 0);
+
 
 
   // =====================================
