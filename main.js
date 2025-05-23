@@ -14,7 +14,7 @@ function createWindow() {
   });
 
   win.maximize();
-  win.removeMenu();  
+  //win.removeMenu();  
   win.loadFile(path.join(__dirname, 'src/views/index.html'));
 }
 
