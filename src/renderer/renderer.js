@@ -52,7 +52,7 @@ function render(filas) {
     const esPermiso = !!f.permiso;
     const sinMarcacion = !f.entrada && !f.salida && !esPermiso;
 
-    // Si hay permiso, comparar si hay entrada/salida mejor
+    // Comparar si hay permiso y determinar qué hora prevalece
     if (esPermiso) {
       const entPermiso = f.permiso.ini;
       const salPermiso = f.permiso.fin;
@@ -85,10 +85,14 @@ function render(filas) {
       claseHoras = 'text-gray-800 font-bold';
     }
 
+    const tooltipPermiso = esPermiso
+      ? `${f.permiso.ini} – ${f.permiso.fin}\n${f.permiso.cat}\n${f.permiso.reason}`
+      : '';
+
     const horasHtml = f.horas
-      ? `<span title="${esPermiso ? `Horario permiso: ${f.permiso.ini} – ${f.permiso.fin}` : ''}">
-           ${f.horas} h
-         </span>`
+      ? `${f.horas} h ${esPermiso
+          ? `<span class="ml-1 text-blue-500 cursor-help" title="${tooltipPermiso.replace(/\n/g, '&#10;')}">ℹ︎</span>`
+          : ''}`
       : '--';
 
     tr.innerHTML = `
@@ -103,6 +107,7 @@ function render(filas) {
 
   window.__filasTabla = filas;
 }
+
 
 /* ---------- 3. Utilidades de fechas ---------------------------------- */
 function obtenerDiasHabilesMes(anio, mes) {
@@ -225,21 +230,19 @@ document.getElementById('btn').addEventListener('click', async () => {
     hoy.setHours(0, 0, 0, 0); // Solo fecha, sin hora
 
     filas.forEach(f => {
-      // Convertir fecha "dd/mm/yyyy" a objeto Date
       const [dd, mm, yyyy] = f.dia.split('/');
       const fechaDia = new Date(`${yyyy}-${mm}-${dd}`);
-
-      // Ignorar días a futuro
       if (fechaDia > hoy) return;
 
       const tieneEntrada = !!f.entrada;
-      const tieneSalida = !!f.salida;
+      const tieneSalida  = !!f.salida;
 
       if (!tieneEntrada && !tieneSalida) {
         diasSinMarcaje++;
         return;
       }
 
+      // Minutos tardíos por entrada después de 08:00
       if (tieneEntrada) {
         const [hE, mE] = f.entrada.split(':').map(Number);
         if (hE > 8 || (hE === 8 && mE > 0)) {
@@ -248,16 +251,22 @@ document.getElementById('btn').addEventListener('click', async () => {
         }
       }
 
+      // Minutos tardíos por salida antes de 15:30
       if (tieneSalida) {
-        const [hS, mS] = f.salida.split(':').map(Number);
-        if (hS < 15 || (hS === 15 && mS < 30)) {
-          const minutosSalida = (15 - hS) * 60 + (30 - mS);
-          minutosTardiosDetectados += minutosSalida;
+        // Evita sumar si salida es antes o igual a entrada (caso anómalo)
+        if (!tieneEntrada || f.salida > f.entrada) {
+          const [hS, mS] = f.salida.split(':').map(Number);
+          if (hS < 15 || (hS === 15 && mS < 30)) {
+            const minutosSalida = (15 - hS) * 60 + (30 - mS);
+            minutosTardiosDetectados += minutosSalida;
+          }
         }
       }
     });
 
     const minutosNetos = Math.max(minutosTardiosDetectados - minutosAutorizados, 0);
+
+
 
     // ==============================
     // Mostrar en UI con 2 columnas
@@ -311,10 +320,13 @@ document.addEventListener('DOMContentLoaded', () => {
     opt.selected = true;
     sel.appendChild(opt);
 
-    poolInfo.forEach(info => {
-      const label = `${info.nombre} (${info.gafete}) — ${info.usuario}`;
-      sel.appendChild(new Option(label, info.gafete));
-    });
+    // Ordenar alfabéticamente por nombre antes de construir el <select>
+    poolInfo
+      .sort((a, b) => a.nombre.localeCompare(b.nombre, 'es', { sensitivity: 'base' }))
+      .forEach(info => {
+        const label = `${info.nombre} (${info.gafete}) — ${info.usuario}`;
+        sel.appendChild(new Option(label, info.gafete));
+      });
 
     sel.addEventListener('change', () => {
       window.__empCode   = sel.value;
@@ -376,43 +388,52 @@ btnExport.addEventListener('click', () => {
   // =====================================
   // Cálculo: Tiempo Tardío y Días sin marcaje
   // =====================================
-  const minutosAutorizados = 30;
-  let minutosTardiosDetectados = 0;
-  let diasSinMarcaje = 0;
-  const hoy = new Date();
-  hoy.setHours(0, 0, 0, 0);
+  // =====================================
+// Cálculo: Tiempo Tardío (para PDF)
+// =====================================
+const minutosAutorizados = 30;
+let minutosTardiosDetectados = 0;
+let diasSinMarcaje = 0;
 
-  filas.forEach(f => {
-    const [dd, mm, yyyy] = f.dia.split('/');
-    const fechaDia = new Date(`${yyyy}-${mm}-${dd}`);
-    if (fechaDia > hoy) return;
+const hoy = new Date();
+hoy.setHours(0, 0, 0, 0); // Reset hora
 
-    const tieneEntrada = !!f.entrada;
-    const tieneSalida = !!f.salida;
+filas.forEach(f => {
+  const [dd, mm, yyyy] = f.dia.split('/');
+  const fechaDia = new Date(`${yyyy}-${mm}-${dd}`);
+  if (fechaDia > hoy) return;
 
-    if (!tieneEntrada && !tieneSalida) {
-      diasSinMarcaje++;
-      return;
+  const tieneEntrada = !!f.entrada;
+  const tieneSalida  = !!f.salida;
+
+  if (!tieneEntrada && !tieneSalida) {
+    diasSinMarcaje++;
+    return;
+  }
+
+  // Entrada tardía después de las 08:00
+  if (tieneEntrada) {
+    const [hE, mE] = f.entrada.split(':').map(Number);
+    if (hE > 8 || (hE === 8 && mE > 0)) {
+      const minutosEntrada = (hE - 8) * 60 + mE;
+      minutosTardiosDetectados += minutosEntrada;
     }
+  }
 
-    if (tieneEntrada) {
-      const [hE, mE] = f.entrada.split(':').map(Number);
-      if (hE > 8 || (hE === 8 && mE > 0)) {
-        const minutosEntrada = (hE - 8) * 60 + mE;
-        minutosTardiosDetectados += minutosEntrada;
-      }
-    }
-
-    if (tieneSalida) {
+  // Salida anticipada antes de 15:30 (si es válida respecto a entrada)
+  if (tieneSalida) {
+    if (!tieneEntrada || f.salida > f.entrada) {
       const [hS, mS] = f.salida.split(':').map(Number);
       if (hS < 15 || (hS === 15 && mS < 30)) {
         const minutosSalida = (15 - hS) * 60 + (30 - mS);
         minutosTardiosDetectados += minutosSalida;
       }
     }
-  });
+  }
+});
 
-  const minutosNetos = Math.max(minutosTardiosDetectados - minutosAutorizados, 0);
+const minutosNetos = Math.max(minutosTardiosDetectados - minutosAutorizados, 0);
+
 
   // =====================================
   // Cuerpo de tabla de asistencia
