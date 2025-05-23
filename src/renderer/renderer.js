@@ -163,17 +163,33 @@ document.getElementById('btn').addEventListener('click', async () => {
     window.__endDate   = ff;
 
 
-   // ==============================
+  // ==============================
   // Cálculo: Tiempo Tardío
   // ==============================
   const minutosAutorizados = 30;
   let minutosTardiosDetectados = 0;
+  let diasSinMarcaje = 0;
 
-  // Solo considerar días con al menos una marcación válida
+  const hoy = new Date();
+  hoy.setHours(0, 0, 0, 0); // Solo fecha, sin hora
+
   filas.forEach(f => {
-    if (!f.entrada && !f.salida) return;
+    // Convertir fecha "dd/mm/yyyy" a objeto Date
+    const [dd, mm, yyyy] = f.dia.split('/');
+    const fechaDia = new Date(`${yyyy}-${mm}-${dd}`);
 
-    if (f.entrada) {
+    // Ignorar días a futuro
+    if (fechaDia > hoy) return;
+
+    const tieneEntrada = !!f.entrada;
+    const tieneSalida = !!f.salida;
+
+    if (!tieneEntrada && !tieneSalida) {
+      diasSinMarcaje++;
+      return;
+    }
+
+    if (tieneEntrada) {
       const [hE, mE] = f.entrada.split(':').map(Number);
       if (hE > 8 || (hE === 8 && mE > 0)) {
         const minutosEntrada = (hE - 8) * 60 + mE;
@@ -181,7 +197,7 @@ document.getElementById('btn').addEventListener('click', async () => {
       }
     }
 
-    if (f.salida) {
+    if (tieneSalida) {
       const [hS, mS] = f.salida.split(':').map(Number);
       if (hS < 15 || (hS === 15 && mS < 30)) {
         const minutosSalida = (15 - hS) * 60 + (30 - mS);
@@ -190,20 +206,23 @@ document.getElementById('btn').addEventListener('click', async () => {
     }
   });
 
-const minutosNetos = Math.max(minutosTardiosDetectados - minutosAutorizados, 0);
+  const minutosNetos = Math.max(minutosTardiosDetectados - minutosAutorizados, 0);
 
-// ==============================
-// Mostrar en UI
-// ==============================
-const tardiosDiv = document.getElementById('tardios');
-tardiosDiv.innerHTML = `
-  <div class="p-4 bg-yellow-100 border border-yellow-400 rounded text-sm text-yellow-800">
-    <p><strong>Tiempo Tardío</strong></p>
-    <p>Minutos autorizados tardíos: <strong>${minutosAutorizados}</strong></p>
-    <p>Minutos tardíos detectados: <strong>${minutosTardiosDetectados}</strong></p>
-    <p>Minutos tardíos netos: <strong>${minutosNetos}</strong></p>
-  </div>
-`;
+  // ==============================
+  // Mostrar en UI con 2 columnas
+  // ==============================
+  const tardiosDiv = document.getElementById('tardios');
+  tardiosDiv.innerHTML = `
+    <div class="p-4 bg-yellow-100 border border-yellow-400 rounded text-sm text-yellow-800">
+      <p class="font-bold mb-2">Tiempo Tardío</p>
+      <div class="grid grid-cols-2 gap-x-8">
+        <p>Minutos autorizados tardíos: <strong>${minutosAutorizados}</strong></p>
+        <p>Minutos tardíos netos: <strong>${minutosNetos}</strong></p>
+        <p>Minutos tardíos detectados: <strong>${minutosTardiosDetectados}</strong></p>
+        <p>Días sin marcaje: <strong>${diasSinMarcaje}</strong></p>
+      </div>
+    </div>
+  `;
 
 
   } catch (err) {
@@ -304,15 +323,28 @@ btnExport.addEventListener('click', () => {
   });
 
   // =====================================
-  // Cálculo: Tiempo Tardío
+  // Cálculo: Tiempo Tardío y Días sin marcaje
   // =====================================
   const minutosAutorizados = 30;
   let minutosTardiosDetectados = 0;
+  let diasSinMarcaje = 0;
+  const hoy = new Date();
+  hoy.setHours(0, 0, 0, 0);
 
   filas.forEach(f => {
-    if (!f.entrada && !f.salida) return;
+    const [dd, mm, yyyy] = f.dia.split('/');
+    const fechaDia = new Date(`${yyyy}-${mm}-${dd}`);
+    if (fechaDia > hoy) return;
 
-    if (f.entrada) {
+    const tieneEntrada = !!f.entrada;
+    const tieneSalida = !!f.salida;
+
+    if (!tieneEntrada && !tieneSalida) {
+      diasSinMarcaje++;
+      return;
+    }
+
+    if (tieneEntrada) {
       const [hE, mE] = f.entrada.split(':').map(Number);
       if (hE > 8 || (hE === 8 && mE > 0)) {
         const minutosEntrada = (hE - 8) * 60 + mE;
@@ -320,7 +352,7 @@ btnExport.addEventListener('click', () => {
       }
     }
 
-    if (f.salida) {
+    if (tieneSalida) {
       const [hS, mS] = f.salida.split(':').map(Number);
       if (hS < 15 || (hS === 15 && mS < 30)) {
         const minutosSalida = (15 - hS) * 60 + (30 - mS);
@@ -355,6 +387,9 @@ btnExport.addEventListener('click', () => {
     })
   ];
 
+  // =====================================
+  // Definición del PDF
+  // =====================================
   const docDefinition = {
     pageMargins:[40,60,40,60],
     info:{ title:`reporte_${gafete}_${fechaIni.replace(/\//g,'-')}_${fechaFin.replace(/\//g,'-')}` },
@@ -365,17 +400,21 @@ btnExport.addEventListener('click', () => {
       { text:`Rango de fechas: ${fechaIni} – ${fechaFin}`, margin:[0,0,0,2] },
       { text:`Exportado el: ${exportado}`,      margin:[0,0,0,18], style:'nota' },
 
-      // Sección: Tiempo Tardío
+      // Sección: Tiempo Tardío + Días sin marcaje
+      { text: 'Tiempo Tardío', style: 'subtitulo', margin: [0, 0, 0, 6] },
       {
         margin: [0, 0, 0, 18],
-        style: 'tardioBox',
         table: {
-          widths: ['*'],
+          widths: ['*', '*'],
           body: [
-            [{ text: 'Tiempo Tardío', style: 'subtitulo' }],
-            [{ text: `Minutos autorizados tardíos: ${minutosAutorizados}` }],
-            [{ text: `Minutos tardíos detectados: ${minutosTardiosDetectados}` }],
-            [{ text: `Minutos tardíos netos: ${minutosNetos}` }]
+            [
+              { text: 'Minutos autorizados tardíos: ' + minutosAutorizados, style: 'td' },
+              { text: 'Minutos tardíos netos: ' + minutosNetos, style: 'td' }
+            ],
+            [
+              { text: 'Minutos tardíos detectados: ' + minutosTardiosDetectados, style: 'td' },
+              { text: 'Días sin marcaje: ' + diasSinMarcaje, style: 'td' }
+            ]
           ]
         },
         layout: {
@@ -386,7 +425,6 @@ btnExport.addEventListener('click', () => {
           fillColor: () => '#FEF3C7'
         }
       },
-
       // Sección: Tabla de asistencia
       {
         columns:[
@@ -416,4 +454,6 @@ btnExport.addEventListener('click', () => {
 
   window.pdfMake.createPdf(docDefinition).open();
 });
+
+
 
