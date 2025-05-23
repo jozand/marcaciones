@@ -127,19 +127,26 @@ document.getElementById('btn').addEventListener('click', async () => {
       const [endDate,   endTime  ] = p.end_time.split(' ');
       const [yyyy, mm, dd] = startDate.split('-');
       const fechaKey = `${dd}/${mm}/${yyyy}`;
+
+      const salidaPermiso = endTime.slice(0, 5);
+      const existente = mapa[fechaKey];
+
       mapa[fechaKey] = {
         dia     : fechaKey,
-        entrada : startTime.slice(0,5),
-        salida  : endTime.slice(0,5),
-        horas   : '',
+        entrada : startTime.slice(0, 5),
+        salida  : (existente?.salida && existente.salida > salidaPermiso)
+                    ? existente.salida
+                    : salidaPermiso,
+        horas   : existente?.horas || '',
         permiso : {
-          ini   : startTime.slice(0,5),
-          fin   : endTime.slice(0,5),
+          ini   : startTime.slice(0, 5),
+          fin   : endTime.slice(0, 5),
           cat   : p.category,
           reason: p.apply_reason.trim()
         }
       };
     });
+
 
     const [anio, mes] = fi.split('-').map(Number);
     const filas = obtenerDiasHabilesMes(anio, mes).map(d =>
@@ -147,12 +154,57 @@ document.getElementById('btn').addEventListener('click', async () => {
     );
 
     render(filas);
+    
     setExportEnabled(true);
 
     window.__empCode   = empCode;
     window.__empNombre = window.catalogo?.porGafete(empCode)?.nombre || '';
     window.__startDate = fi;
     window.__endDate   = ff;
+
+
+   // ==============================
+  // Cálculo: Tiempo Tardío
+  // ==============================
+  const minutosAutorizados = 30;
+  let minutosTardiosDetectados = 0;
+
+  // Solo considerar días con al menos una marcación válida
+  filas.forEach(f => {
+    if (!f.entrada && !f.salida) return;
+
+    if (f.entrada) {
+      const [hE, mE] = f.entrada.split(':').map(Number);
+      if (hE > 8 || (hE === 8 && mE > 0)) {
+        const minutosEntrada = (hE - 8) * 60 + mE;
+        minutosTardiosDetectados += minutosEntrada;
+      }
+    }
+
+    if (f.salida) {
+      const [hS, mS] = f.salida.split(':').map(Number);
+      if (hS < 15 || (hS === 15 && mS < 30)) {
+        const minutosSalida = (15 - hS) * 60 + (30 - mS);
+        minutosTardiosDetectados += minutosSalida;
+      }
+    }
+  });
+
+const minutosNetos = Math.max(minutosTardiosDetectados - minutosAutorizados, 0);
+
+// ==============================
+// Mostrar en UI
+// ==============================
+const tardiosDiv = document.getElementById('tardios');
+tardiosDiv.innerHTML = `
+  <div class="p-4 bg-yellow-100 border border-yellow-400 rounded text-sm text-yellow-800">
+    <p><strong>Tiempo Tardío</strong></p>
+    <p>Minutos autorizados tardíos: <strong>${minutosAutorizados}</strong></p>
+    <p>Minutos tardíos detectados: <strong>${minutosTardiosDetectados}</strong></p>
+    <p>Minutos tardíos netos: <strong>${minutosNetos}</strong></p>
+  </div>
+`;
+
 
   } catch (err) {
     alert(err.message);
@@ -202,6 +254,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
       // Limpia la tabla
       document.getElementById('tbody').innerHTML = '';
+      document.getElementById('tardios').innerHTML = '';
       setExportEnabled(false);
     });
 
@@ -250,6 +303,37 @@ btnExport.addEventListener('click', () => {
     day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit'
   });
 
+  // =====================================
+  // Cálculo: Tiempo Tardío
+  // =====================================
+  const minutosAutorizados = 30;
+  let minutosTardiosDetectados = 0;
+
+  filas.forEach(f => {
+    if (!f.entrada && !f.salida) return;
+
+    if (f.entrada) {
+      const [hE, mE] = f.entrada.split(':').map(Number);
+      if (hE > 8 || (hE === 8 && mE > 0)) {
+        const minutosEntrada = (hE - 8) * 60 + mE;
+        minutosTardiosDetectados += minutosEntrada;
+      }
+    }
+
+    if (f.salida) {
+      const [hS, mS] = f.salida.split(':').map(Number);
+      if (hS < 15 || (hS === 15 && mS < 30)) {
+        const minutosSalida = (15 - hS) * 60 + (30 - mS);
+        minutosTardiosDetectados += minutosSalida;
+      }
+    }
+  });
+
+  const minutosNetos = Math.max(minutosTardiosDetectados - minutosAutorizados, 0);
+
+  // =====================================
+  // Cuerpo de tabla de asistencia
+  // =====================================
   const body = [
     [ {text:'Fecha',style:'th'}, {text:'Entrada',style:'th'},
       {text:'Salida',style:'th'}, {text:'Horas/Permiso',style:'th'} ],
@@ -280,6 +364,30 @@ btnExport.addEventListener('click', () => {
       { text:`Nombre: ${nombre}`,               margin:[0,0,0,2] },
       { text:`Rango de fechas: ${fechaIni} – ${fechaFin}`, margin:[0,0,0,2] },
       { text:`Exportado el: ${exportado}`,      margin:[0,0,0,18], style:'nota' },
+
+      // Sección: Tiempo Tardío
+      {
+        margin: [0, 0, 0, 18],
+        style: 'tardioBox',
+        table: {
+          widths: ['*'],
+          body: [
+            [{ text: 'Tiempo Tardío', style: 'subtitulo' }],
+            [{ text: `Minutos autorizados tardíos: ${minutosAutorizados}` }],
+            [{ text: `Minutos tardíos detectados: ${minutosTardiosDetectados}` }],
+            [{ text: `Minutos tardíos netos: ${minutosNetos}` }]
+          ]
+        },
+        layout: {
+          hLineWidth: () => 0,
+          vLineWidth: () => 0,
+          paddingTop: () => 2,
+          paddingBottom: () => 2,
+          fillColor: () => '#FEF3C7'
+        }
+      },
+
+      // Sección: Tabla de asistencia
       {
         columns:[
           { width:'*',  text:'' },
@@ -297,12 +405,15 @@ btnExport.addEventListener('click', () => {
       }
     ],
     styles:{
-      titulo:{ fontSize:14, bold:true, alignment:'center', margin:[0,0,0,12] },
-      nota  :{ fontSize:8,  color:'#555' },
-      th    :{ fontSize:9,  bold:true, alignment:'center', margin:[0,2,0,2] },
-      td    :{ fontSize:8,  alignment:'center', margin:[0,2,0,2] }
+      titulo   :{ fontSize:14, bold:true, alignment:'center', margin:[0,0,0,12] },
+      subtitulo:{ fontSize:12, bold:true, margin:[0,2,0,6] },
+      nota     :{ fontSize:8,  color:'#555' },
+      th       :{ fontSize:9,  bold:true, alignment:'center', margin:[0,2,0,2] },
+      td       :{ fontSize:8,  alignment:'center', margin:[0,2,0,2] },
+      tardioBox:{ fontSize:9,  color:'#92400E', margin:[0,0,0,12] }
     }
   };
 
   window.pdfMake.createPdf(docDefinition).open();
 });
+
