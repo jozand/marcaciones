@@ -6,6 +6,7 @@
 const circle     = document.getElementById('circle');
 const statusSpan = document.getElementById('status');
 const btnExport  = document.getElementById('btnExport');
+const btnConsultar  = document.getElementById('btnConsultar');
 let currentPdfUrl = null;
 
 function setExportEnabled(enabled) {
@@ -133,7 +134,7 @@ function calcularHoras(ini, fin) {
 }
 
 /* ---------- 4. Botón “Consultar” ------------------------------------- */
-document.getElementById('btn').addEventListener('click', async () => {
+btnConsultar.addEventListener('click', async () => {
   const empCode = String(window.__empCode ?? '').trim();
   const fi = document.getElementById('fi').value;
   const ff = document.getElementById('ff').value;
@@ -149,18 +150,31 @@ document.getElementById('btn').addEventListener('click', async () => {
     const empleado = await window.api.obtenerEmpleadoDesdePersonnel(empCode);
     const reporte  = await window.api.obtenerReporteAsistencia(empleado.id, fi, ff);
 
+    console.log(reporte);
+    
+
     const mapa = Object.fromEntries(
-      reporte.map(r => {
-        const [dd, mm, yyyy] = r.att_date.split('-');
-        const fechaKey = `${dd}/${mm}/${yyyy}`;
-        return [fechaKey, {
-          dia    : fechaKey,
-          entrada: r.first_punch || '',
-          salida : r.last_punch  || '',
-          horas  : r.total_time?.toFixed(1) || ''
-        }];
-      })
-    );
+    reporte.map(r => {
+      const [dd, mm, yyyy] = r.att_date.split('-');
+      const fechaKey = `${dd}/${mm}/${yyyy}`;
+
+      const entrada = r.first_punch || '';
+      let salida    = r.last_punch || '';
+
+      // ⚠️ Si la salida es igual a la entrada, la ignoramos
+      if (salida === entrada) {
+        salida = '';
+      }
+
+      return [fechaKey, {
+        dia    : fechaKey,
+        entrada,
+        salida,
+        horas  : r.total_time?.toFixed(1) || ''
+      }];
+    })
+  );
+
 
     const permisos = await window.api.obtenerPermisos(empCode, fi, ff);
     permisos.forEach(p => {
@@ -302,7 +316,7 @@ document.addEventListener('DOMContentLoaded', () => {
   ff.value = new Date(hoy.getFullYear(), hoy.getMonth() + 1, 0).toISOString().split('T')[0];
 
   const wrapper       = document.getElementById('gafete-wrapper');
-  const btnConsultar  = document.getElementById('btn');
+  const btnConsultar  = document.getElementById('btnConsultar');
   const poolInfo      = window.usuario.obtenerPoolInfo();
   const miInfo        = window.usuario.obtenerMiInfo();
 
