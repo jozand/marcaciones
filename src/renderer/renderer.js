@@ -155,14 +155,14 @@ btnConsultar.addEventListener('click', async () => {
       const [dd, mm, yyyy] = r.att_date.split('-');
       const fechaKey = `${dd}/${mm}/${yyyy}`;
 
-      return [fechaKey, {
-        dia    : fechaKey,
-        entrada :r.first_punch || '',
-        salida : r.last_punch || '',
-        horas  : r.total_time?.toFixed(1) || ''
-      }];
-    })
-  );
+        return [fechaKey, {
+          dia    : fechaKey,
+          entrada :r.first_punch || '',
+          salida : r.last_punch || '',
+          horas  : r.total_time?.toFixed(1) || ''
+        }];
+      })
+    );
 
 
     const permisos = await window.api.obtenerPermisos(empCode, fi, ff);
@@ -235,8 +235,14 @@ btnConsultar.addEventListener('click', async () => {
 
     filas.forEach(f => {
       const [dd, mm, yyyy] = f.dia.split('/');
-      const fechaDia = new Date(`${yyyy}-${mm}-${dd}`);
-      if (fechaDia > hoy) return;
+      const fechaDia = new Date(
+        Number(yyyy),
+        Number(mm) - 1,  // meses 0–11
+        Number(dd)
+      );
+      fechaDia.setHours(0, 0, 0, 0);
+
+      if (fechaDia >= hoy) return;
 
       const tieneEntrada = !!f.entrada;
       const tieneSalida  = !!f.salida;
@@ -387,50 +393,47 @@ btnExport.addEventListener('click', () => {
   const fechaIni  = (window.__startDate ?? '').split('-').reverse().join('/');
   const fechaFin  = (window.__endDate   ?? '').split('-').reverse().join('/');
   const exportado = new Date().toLocaleString('es-GT', {
-    day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit'
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit'
   });
 
-
-  // =====================================
   // Cálculo: Tiempo Tardío (para PDF)
-  // =====================================
   const minutosAutorizados = 30;
   let minutosTardiosDetectados = 0;
   let diasSinMarcaje = 0;
-
   const hoy = new Date();
-  hoy.setHours(0, 0, 0, 0); // Reset hora
+  hoy.setHours(0, 0, 0, 0);
 
   filas.forEach(f => {
     const [dd, mm, yyyy] = f.dia.split('/');
-    const fechaDia = new Date(`${yyyy}-${mm}-${dd}`);
-    if (fechaDia > hoy) return;
+    const fechaDia = new Date(Number(yyyy), Number(mm) - 1, Number(dd));
+    fechaDia.setHours(0, 0, 0, 0);
+    if (fechaDia >= hoy) return;
 
     const tieneEntrada = !!f.entrada;
     const tieneSalida  = !!f.salida;
 
     if (!tieneEntrada && !tieneSalida) {
       diasSinMarcaje++;
-      minutosTardiosDetectados += 450; // 7.5 horas por ausencia
+      minutosTardiosDetectados += 450;
       return;
     }
 
-    // Entrada tardía después de las 08:00
     if (tieneEntrada) {
       const [hE, mE] = f.entrada.split(':').map(Number);
       if (hE > 8 || (hE === 8 && mE > 0)) {
-        const minutosEntrada = (hE - 8) * 60 + mE;
-        minutosTardiosDetectados += minutosEntrada;
+        minutosTardiosDetectados += (hE - 8) * 60 + mE;
       }
     }
 
-    // Salida anticipada antes de 15:30 (si es válida respecto a entrada)
     if (tieneSalida) {
       if (!tieneEntrada || f.salida > f.entrada) {
         const [hS, mS] = f.salida.split(':').map(Number);
         if (hS < 15 || (hS === 15 && mS < 30)) {
-          const minutosSalida = (15 - hS) * 60 + (30 - mS);
-          minutosTardiosDetectados += minutosSalida;
+          minutosTardiosDetectados += (15 - hS) * 60 + (30 - mS);
         }
       }
     }
@@ -438,46 +441,66 @@ btnExport.addEventListener('click', () => {
 
   const minutosNetos = Math.max(minutosTardiosDetectados - minutosAutorizados, 0);
 
-
-
-  // =====================================
   // Cuerpo de tabla de asistencia
-  // =====================================
   const body = [
-    [ {text:'Fecha',style:'th'}, {text:'Entrada',style:'th'},
-      {text:'Salida',style:'th'}, {text:'Horas/Permiso',style:'th'} ],
-    ...filas.map(f=>{
-      const esPermiso = !!f.permiso;
-      const [hE=0,mE=0] = (f.entrada||'').split(':').map(Number);
-      const [hS=0,mS=0] = (f.salida ||'').split(':').map(Number);
-      const entradaTarde = !esPermiso && (hE>8||(hE===8&&mE>0));
-      const salidaPronto = !esPermiso && (hS<15||(hS===15&&mS<30));
+    [
+      { text: 'Fecha',           style: 'th' },
+      { text: 'Entrada',         style: 'th' },
+      { text: 'Salida',          style: 'th' },
+      { text: 'Horas / Permiso', style: 'th' }
+    ],
+    ...filas.map(f => {
+      const permiso = f.permiso;
+      const esPermiso = !!permiso;
+      const [hE = 0, mE = 0] = (f.entrada || '').split(':').map(Number);
+      const [hS = 0, mS = 0] = (f.salida  || '').split(':').map(Number);
+      const entradaTarde = !esPermiso && (hE > 8 || (hE === 8 && mE > 0));
+      const salidaPronto = !esPermiso && (hS < 15 || (hS === 15 && mS < 30));
+
+      // Colores para entrada y salida
+      const entradaColor = permiso && f.entrada === permiso.ini
+        ? 'blue'
+        : (entradaTarde ? 'red' : undefined);
+      const salidaColor  = permiso && f.salida === permiso.fin
+        ? 'blue'
+        : (salidaPronto ? 'red' : undefined);
+
+      // Celda Horas / Permiso: rango azul + horas negras
+      let horasPermisoCell;
+      if (esPermiso) {
+        const parts = [
+          { text: `${permiso.ini} – ${permiso.fin}`, color: 'blue' }
+        ];
+        if (f.horas) {
+          parts.push({ text: ` ${f.horas}h` });
+        }
+        horasPermisoCell = { text: parts, style: 'td' };
+      } else {
+        horasPermisoCell = { text: f.horas || '', style: 'td' };
+      }
+
       return [
-        { text:f.dia,            style:'td' },
-        { text:f.entrada||'—',   style:'td',
-          color: esPermiso?'blue':(entradaTarde?'red':undefined) },
-        { text:f.salida ||'—',   style:'td',
-          color: esPermiso?'blue':(salidaPronto?'red':undefined) },
-        { text: esPermiso?`${f.permiso.ini} – ${f.permiso.fin}`:(f.horas||''),
-          style:'td', color: esPermiso?'blue':undefined, noWrap:false }
+        { text: f.dia,            style: 'td' },
+        { text: f.entrada || '—', style: 'td', color: entradaColor },
+        { text: f.salida  || '—', style: 'td', color: salidaColor },
+        horasPermisoCell
       ];
     })
   ];
 
-  // =====================================
-  // Definición del PDF
-  // =====================================
+  // Definición y apertura del PDF
   const docDefinition = {
-    pageMargins:[40,60,40,60],
-    info:{ title:`reporte_${gafete}_${fechaIni.replace(/\//g,'-')}_${fechaFin.replace(/\//g,'-')}` },
-    content:[
-      { text:'REPORTE DE ASISTENCIA', style:'titulo' },
-      { text:`Gafete: ${gafete}`,               margin:[0,0,0,2] },
-      { text:`Nombre: ${nombre}`,               margin:[0,0,0,2] },
-      { text:`Rango de fechas: ${fechaIni} – ${fechaFin}`, margin:[0,0,0,2] },
-      { text:`Exportado el: ${exportado}`,      margin:[0,0,0,18], style:'nota' },
+    pageMargins: [40, 60, 40, 60],
+    info: {
+      title: `reporte_${gafete}_${fechaIni.replace(/\//g, '-')}_${fechaFin.replace(/\//g, '-')}`
+    },
+    content: [
+      { text: 'REPORTE DE ASISTENCIA', style: 'titulo' },
+      { text: `Gafete: ${gafete}`,         margin: [0, 0, 0, 2] },
+      { text: `Nombre: ${nombre}`,         margin: [0, 0, 0, 2] },
+      { text: `Rango de fechas: ${fechaIni} – ${fechaFin}`, margin: [0, 0, 0, 2] },
+      { text: `Exportado el: ${exportado}`, margin: [0, 0, 0, 18], style: 'nota' },
 
-      // Sección: Tiempo Tardío + Días sin marcaje
       { text: 'Tiempo Tardío', style: 'subtitulo', margin: [0, 0, 0, 6] },
       {
         margin: [0, 0, 0, 18],
@@ -485,47 +508,48 @@ btnExport.addEventListener('click', () => {
           widths: ['*', '*'],
           body: [
             [
-              { text: 'Minutos autorizados tardíos: ' + minutosAutorizados, style: 'td' },
-              { text: 'Minutos tardíos netos: ' + minutosNetos, style: 'td' }
+              { text: 'Minutos autorizados: ' + minutosAutorizados, style: 'td' },
+              { text: 'Minutos netos: '       + minutosNetos,       style: 'td' }
             ],
             [
-              { text: 'Minutos tardíos detectados: ' + minutosTardiosDetectados, style: 'td' },
-              { text: 'Días sin marcaje: ' + diasSinMarcaje, style: 'td' }
+              { text: 'Minutos detectados: ' + minutosTardiosDetectados, style: 'td' },
+              { text: 'Días sin marcaje: '   + diasSinMarcaje,            style: 'td' }
             ]
           ]
         },
         layout: {
-          hLineWidth: () => 0,
-          vLineWidth: () => 0,
-          paddingTop: () => 2,
+          hLineWidth:  () => 0,
+          vLineWidth:  () => 0,
+          paddingTop:    () => 2,
           paddingBottom: () => 2,
-          fillColor: () => '#FEF3C7'
+          fillColor:     () => '#FEF3C7'
         }
       },
-      // Sección: Tabla de asistencia
+
       {
-        columns:[
-          { width:'*',  text:'' },
+        columns: [
+          { width: '*', text: '' },
           {
-            width:'auto',
-            table:{ headerRows:1, widths:[70,60,60,90], body },
-            layout:{
-              fillColor:(row)=> row===0 ? '#E5E7EB' : null,
-              hLineWidth:()=>0.5, vLineWidth:()=>0.5,
-              hLineColor:()=>'#BDBDBD', vLineColor:()=>'#BDBDBD'
+            width: 'auto',
+            table: { headerRows: 1, widths: [70, 60, 60, 90], body },
+            layout: {
+              fillColor:  row => row === 0 ? '#E5E7EB' : null,
+              hLineWidth: () => 0.5,
+              vLineWidth: () => 0.5,
+              hLineColor: () => '#BDBDBD',
+              vLineColor: () => '#BDBDBD'
             }
           },
-          { width:'*',  text:'' }
+          { width: '*', text: '' }
         ]
       }
     ],
-    styles:{
-      titulo   :{ fontSize:14, bold:true, alignment:'center', margin:[0,0,0,12] },
-      subtitulo:{ fontSize:12, bold:true, margin:[0,2,0,6] },
-      nota     :{ fontSize:8,  color:'#555' },
-      th       :{ fontSize:9,  bold:true, alignment:'center', margin:[0,2,0,2] },
-      td       :{ fontSize:8,  alignment:'center', margin:[0,2,0,2] },
-      tardioBox:{ fontSize:9,  color:'#92400E', margin:[0,0,0,12] }
+    styles: {
+      titulo:    { fontSize: 14, bold: true, alignment: 'center', margin: [0, 0, 0, 12] },
+      subtitulo: { fontSize: 12, bold: true, margin: [0, 2, 0, 6] },
+      nota:      { fontSize: 8,  color: '#555' },
+      th:        { fontSize: 9,  bold: true, alignment: 'center', margin: [0, 2, 0, 2] },
+      td:        { fontSize: 8,  alignment: 'center', margin: [0, 2, 0, 2] }
     }
   };
 
