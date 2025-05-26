@@ -5,7 +5,7 @@
   "scripts": {
     "start": "electron .",
     "encrypt-config": "node encrypt-config.js",
-    "build": "npm run encrypt-config && electron-packager . MarcajesApp --platform=win32 --arch=x64 --out=dist --overwrite --asar && copy config.enc dist\\MarcajesApp-win32-x64\\config.enc"
+    "build": "npm run encrypt-config && electron-packager . MarcajesApp --platform=win32 --arch=x64 --out=dist --overwrite --asar --win32metadata.CompanyName='Organismo Judicial' --win32metadata.OriginalFilename='MarcajesApp.exe' && copy config.enc dist\\MarcajesApp-win32-x64\\config.enc"
   },
   "keywords": [],
   "author": "",
@@ -19,7 +19,7 @@
     "tough-cookie": "^5.1.2"
   },
   "devDependencies": {
-    "electron": "^36.2.1",
+    "electron": "^22.3.26",
     "electron-packager": "^17.1.2"
   }
 }

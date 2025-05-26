@@ -148,28 +148,17 @@ btnConsultar.addEventListener('click', async () => {
 
   try {
     const empleado = await window.api.obtenerEmpleadoDesdePersonnel(empCode);
-    const reporte  = await window.api.obtenerReporteAsistencia(empleado.id, fi, ff);
-
-    console.log(reporte);
-    
+    const reporte  = await window.api.obtenerReporteAsistencia(empleado.id, fi, ff);  
 
     const mapa = Object.fromEntries(
     reporte.map(r => {
       const [dd, mm, yyyy] = r.att_date.split('-');
       const fechaKey = `${dd}/${mm}/${yyyy}`;
 
-      const entrada = r.first_punch || '';
-      let salida    = r.last_punch || '';
-
-      // ⚠️ Si la salida es igual a la entrada, la ignoramos
-      if (salida === entrada) {
-        salida = '';
-      }
-
       return [fechaKey, {
         dia    : fechaKey,
-        entrada,
-        salida,
+        entrada :r.first_punch || '',
+        salida : r.last_punch || '',
         horas  : r.total_time?.toFixed(1) || ''
       }];
     })
@@ -197,6 +186,7 @@ btnConsultar.addEventListener('click', async () => {
       const salidaFinal = (existente.salida && existente.salida > permisoFin)
         ? existente.salida
         : permisoFin;
+        
 
       // Recalcular las horas
       const horasCalculadas = (entradaFinal && salidaFinal)
