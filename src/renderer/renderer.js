@@ -53,36 +53,57 @@ function render(filas) {
     const esPermiso = !!f.permiso;
     const sinMarcacion = !f.entrada && !f.salida && !esPermiso;
 
-    // Comparar si hay permiso y determinar qué hora prevalece
     if (esPermiso) {
       const entPermiso = f.permiso.ini;
       const salPermiso = f.permiso.fin;
 
+      // Entrada
       if (f.entrada) {
         entradaFinal = entPermiso < f.entrada ? entPermiso : f.entrada;
-        claseEnt = entradaFinal === entPermiso ? 'text-blue-600 font-semibold' : 'text-gray-800';
+        claseEnt = entradaFinal === entPermiso
+          ? 'text-blue-600 font-semibold'
+          : 'text-gray-800';
       } else {
         entradaFinal = entPermiso;
         claseEnt = 'text-blue-600 font-semibold';
       }
 
+      // Salida
       if (f.salida) {
         salidaFinal = salPermiso > f.salida ? salPermiso : f.salida;
-        claseSal = salidaFinal === salPermiso ? 'text-blue-600 font-semibold' : 'text-gray-800';
+        if (salidaFinal === salPermiso) {
+          // sale del permiso
+          claseSal = 'text-blue-600 font-semibold';
+        } else {
+          // es asistencia: evaluar si es antes de 15:30
+          const [hS, mS] = salidaFinal.split(':').map(Number);
+          const pronto = hS < 15 || (hS === 15 && mS < 30);
+          claseSal = pronto
+            ? 'text-red-600 font-semibold'
+            : 'text-gray-800';
+        }
       } else {
         salidaFinal = salPermiso;
         claseSal = 'text-blue-600 font-semibold';
       }
 
       claseHoras = 'text-gray-800 font-bold';
-
-    } else if (!sinMarcacion) {
+    }
+    else if (!sinMarcacion) {
+      // Sin permiso, solo marcación
       const [hE, mE] = (entradaFinal || '00:00').split(':').map(Number);
       const [hS, mS] = (salidaFinal  || '00:00').split(':').map(Number);
+
       const tarde = hE > 8 || (hE === 8 && mE > 0);
+      claseEnt = tarde
+        ? 'text-red-600 font-semibold'
+        : 'text-gray-800';
+
       const pronto = hS < 15 || (hS === 15 && mS < 30);
-      claseEnt = tarde ? 'text-red-600 font-semibold' : 'text-gray-800';
-      claseSal = pronto ? 'text-red-600 font-semibold' : 'text-gray-800';
+      claseSal = pronto
+        ? 'text-red-600 font-semibold'
+        : 'text-gray-800';
+
       claseHoras = 'text-gray-800 font-bold';
     }
 
@@ -92,15 +113,21 @@ function render(filas) {
 
     const horasHtml = f.horas
       ? `${f.horas} h ${esPermiso
-          ? `<span class="ml-1 text-blue-500 cursor-help" title="${tooltipPermiso.replace(/\n/g, '&#10;')}">ℹ︎</span>`
+          ? `<span class="ml-1 text-blue-500 cursor-help" title="${tooltipPermiso.replace(/\n/g,'&#10;')}">ℹ︎</span>`
           : ''}`
       : '--';
 
     tr.innerHTML = `
       <td class="border p-3 text-sm text-gray-800 font-medium">${f.dia}</td>
-      <td class="border p-3 text-sm ${claseEnt} text-center">${entradaFinal || '-- sin marcación --'}</td>
-      <td class="border p-3 text-sm ${claseSal} text-center">${salidaFinal  || '-- sin marcación --'}</td>
-      <td class="border p-3 text-sm text-right ${claseHoras}">${horasHtml}</td>
+      <td class="border p-3 text-sm ${claseEnt} text-center">
+        ${entradaFinal || '-- sin marcación --'}
+      </td>
+      <td class="border p-3 text-sm ${claseSal} text-center">
+        ${salidaFinal  || '-- sin marcación --'}
+      </td>
+      <td class="border p-3 text-sm text-right ${claseHoras}">
+        ${horasHtml}
+      </td>
     `;
 
     tbody.appendChild(tr);
@@ -108,6 +135,8 @@ function render(filas) {
 
   window.__filasTabla = filas;
 }
+
+
 
 
 /* ---------- 3. Utilidades de fechas ---------------------------------- */
@@ -434,26 +463,30 @@ btnExport.addEventListener('click', () => {
       const esPermiso = !!permiso;
       const [hE = 0, mE = 0] = (f.entrada || '').split(':').map(Number);
       const [hS = 0, mS = 0] = (f.salida  || '').split(':').map(Number);
-      const entradaTarde = !esPermiso && (hE > 8 || (hE === 8 && mE > 0));
-      const salidaPronto = !esPermiso && (hS < 15 || (hS === 15 && mS < 30));
 
-      // Colores para entrada y salida
-      const entradaColor = permiso && f.entrada === permiso.ini
+      // Color de entrada (igual que antes)
+      const entradaTarde = !esPermiso && (hE > 8 || (hE === 8 && mE > 0));
+      const entradaColor = esPermiso && f.entrada === permiso.ini
         ? 'blue'
         : (entradaTarde ? 'red' : undefined);
-      const salidaColor  = permiso && f.salida === permiso.fin
-        ? 'blue'
-        : (salidaPronto ? 'red' : undefined);
 
-      // Celda Horas / Permiso: rango azul + horas negras
+      // Color de salida: azul si coincide con fin de permiso,
+      // rojo si (no es fin de permiso) y antes de 15:30
+      let salidaColor;
+      if (esPermiso && f.salida === permiso.fin) {
+        salidaColor = 'blue';
+      } else {
+        const antes1530 = hS < 15 || (hS === 15 && mS < 30);
+        salidaColor = antes1530 ? 'red' : undefined;
+      }
+
+      // Celda Horas / Permiso
       let horasPermisoCell;
       if (esPermiso) {
         const parts = [
           { text: `${permiso.ini} – ${permiso.fin}`, color: 'blue' }
         ];
-        if (f.horas) {
-          parts.push({ text: ` ${f.horas}h` });
-        }
+        if (f.horas) parts.push({ text: ` ${f.horas}h` });
         horasPermisoCell = { text: parts, style: 'td' };
       } else {
         horasPermisoCell = { text: f.horas || '', style: 'td' };
@@ -535,6 +568,7 @@ btnExport.addEventListener('click', () => {
 
   window.pdfMake.createPdf(docDefinition).open();
 });
+
 
 
 
