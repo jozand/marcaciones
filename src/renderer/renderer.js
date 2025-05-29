@@ -39,83 +39,110 @@ function render(filas) {
   const tbody = document.getElementById('tbody');
   tbody.innerHTML = '';
 
+  // Flag horario especial inyectado
+  const especial = window.__especial === true;
+  const [corteEntH, corteEntM] = especial ? [7, 0] : [8, 0];
+  const [corteSalH, corteSalM] = especial ? [14, 30] : [15, 30];
+
+  const hoy = new Date();
+  hoy.setHours(0,0,0,0);
+
   filas.forEach((f, idx) => {
     const tr = document.createElement('tr');
     tr.className = idx % 2 === 0 ? 'bg-white' : 'bg-gray-50';
 
+    // Fecha de la fila
+    const [dd, mm, yyyy] = f.dia.split('/');
+    const fechaDia = new Date(+yyyy, +mm - 1, +dd);
+    fechaDia.setHours(0,0,0,0);
+
+    // Valores iniciales
     let entradaFinal = f.entrada;
     let salidaFinal  = f.salida;
-
-    let claseEnt = 'text-gray-400 italic';
-    let claseSal = 'text-gray-400 italic';
-    let claseHoras = 'text-gray-400 italic';
+    let claseEnt     = 'text-gray-400 italic';
+    let claseSal     = 'text-gray-400 italic';
 
     const esPermiso = !!f.permiso;
-    const sinMarcacion = !f.entrada && !f.salida && !esPermiso;
 
+    // --- 1) Manejo de días con permiso ---
     if (esPermiso) {
-      const entPermiso = f.permiso.ini;
-      const salPermiso = f.permiso.fin;
+      const entPerm = f.permiso.ini;
+      const salPerm = f.permiso.fin;
 
       // Entrada
       if (f.entrada) {
-        entradaFinal = entPermiso < f.entrada ? entPermiso : f.entrada;
-        claseEnt = entradaFinal === entPermiso
-          ? 'text-blue-600 font-semibold'
-          : 'text-gray-800';
+        entradaFinal = entPerm < f.entrada ? entPerm : f.entrada;
+        const [hE, mE] = entradaFinal.split(':').map(Number);
+        const esTarde = hE > corteEntH || (hE === corteEntH && mE > corteEntM);
+        claseEnt = esTarde
+          ? 'text-red-600 font-semibold'
+          : 'text-blue-600 font-semibold';
       } else {
-        entradaFinal = entPermiso;
-        claseEnt = 'text-blue-600 font-semibold';
+        entradaFinal = entPerm;
+        // Falta entrada en día de permiso -> rojo si es hoy o pasado
+        claseEnt = fechaDia <= hoy
+          ? 'text-red-600 font-semibold'
+          : 'text-blue-600 font-semibold';
       }
 
       // Salida
       if (f.salida) {
-        salidaFinal = salPermiso > f.salida ? salPermiso : f.salida;
-        if (salidaFinal === salPermiso) {
-          // sale del permiso
-          claseSal = 'text-blue-600 font-semibold';
-        } else {
-          // es asistencia: evaluar si es antes de 15:30
-          const [hS, mS] = salidaFinal.split(':').map(Number);
-          const pronto = hS < 15 || (hS === 15 && mS < 30);
-          claseSal = pronto
-            ? 'text-red-600 font-semibold'
-            : 'text-gray-800';
-        }
+        salidaFinal = salPerm > f.salida ? salPerm : f.salida;
+        const [hS, mS] = salidaFinal.split(':').map(Number);
+        const esPronto = hS < corteSalH || (hS === corteSalH && mS < corteSalM);
+        claseSal = esPronto
+          ? 'text-red-600 font-semibold'
+          : 'text-blue-600 font-semibold';
       } else {
-        salidaFinal = salPermiso;
-        claseSal = 'text-blue-600 font-semibold';
+        salidaFinal = salPerm;
+        claseSal = fechaDia <= hoy
+          ? 'text-red-600 font-semibold'
+          : 'text-blue-600 font-semibold';
+      }
+    }
+    // --- 2) Días sin permiso ---
+    else {
+      // Entrada presente o ausente
+      if (f.entrada) {
+        const [hE, mE] = f.entrada.split(':').map(Number);
+        const esTarde = hE > corteEntH || (hE === corteEntH && mE > corteEntM);
+        claseEnt = esTarde
+          ? 'text-red-600 font-semibold'
+          : 'text-gray-800';
+      } else {
+        // Falta entrada
+        claseEnt = fechaDia <= hoy
+          ? 'text-red-600 font-semibold'
+          : 'text-gray-400 italic';
       }
 
-      claseHoras = 'text-gray-800 font-bold';
-    }
-    else if (!sinMarcacion) {
-      // Sin permiso, solo marcación
-      const [hE, mE] = (entradaFinal || '00:00').split(':').map(Number);
-      const [hS, mS] = (salidaFinal  || '00:00').split(':').map(Number);
-
-      const tarde = hE > 8 || (hE === 8 && mE > 0);
-      claseEnt = tarde
-        ? 'text-red-600 font-semibold'
-        : 'text-gray-800';
-
-      const pronto = hS < 15 || (hS === 15 && mS < 30);
-      claseSal = pronto
-        ? 'text-red-600 font-semibold'
-        : 'text-gray-800';
-
-      claseHoras = 'text-gray-800 font-bold';
+      // Salida presente o ausente
+      if (f.salida) {
+        const [hS, mS] = f.salida.split(':').map(Number);
+        const esPronto = hS < corteSalH || (hS === corteSalH && mS < corteSalM);
+        claseSal = esPronto
+          ? 'text-red-600 font-semibold'
+          : 'text-gray-800';
+      } else {
+        // Falta salida
+        claseSal = fechaDia <= hoy
+          ? 'text-red-600 font-semibold'
+          : 'text-gray-400 italic';
+      }
     }
 
-    const tooltipPermiso = esPermiso
-      ? `${f.permiso.ini} – ${f.permiso.fin}\n${f.permiso.cat}\n${f.permiso.reason}`
-      : '';
-
-    const horasHtml = f.horas
-      ? `${f.horas} h ${esPermiso
-          ? `<span class="ml-1 text-blue-500 cursor-help" title="${tooltipPermiso.replace(/\n/g,'&#10;')}">ℹ︎</span>`
-          : ''}`
-      : '--';
+    // Columna Permiso: solo horario con tooltip de detalles
+    let permisoHtml = '';
+    if (esPermiso) {
+      const tooltip = 
+        `${f.permiso.ini} – ${f.permiso.fin}\n` +
+        `${f.permiso.cat}\n` +
+        `${f.permiso.reason.trim()}`;
+      permisoHtml = `
+        <span class="text-blue-600 cursor-help" title="${tooltip.replace(/\n/g,'&#10;')}">
+          ${f.permiso.ini} – ${f.permiso.fin}
+        </span>`;
+    }
 
     tr.innerHTML = `
       <td class="border p-3 text-sm text-gray-800 font-medium">${f.dia}</td>
@@ -125,8 +152,8 @@ function render(filas) {
       <td class="border p-3 text-sm ${claseSal} text-center">
         ${salidaFinal  || '-- sin marcación --'}
       </td>
-      <td class="border p-3 text-sm text-right ${claseHoras}">
-        ${horasHtml}
+      <td class="border p-3 text-sm text-right">
+        ${permisoHtml}
       </td>
     `;
 
@@ -135,8 +162,6 @@ function render(filas) {
 
   window.__filasTabla = filas;
 }
-
-
 
 
 /* ---------- 3. Utilidades de fechas ---------------------------------- */
@@ -165,8 +190,8 @@ function calcularHoras(ini, fin) {
 /* ---------- 4. Botón “Consultar” ------------------------------------- */
 btnConsultar.addEventListener('click', async () => {
   const empCode = String(window.__empCode ?? '').trim();
-  const fi = document.getElementById('fi').value;
-  const ff = document.getElementById('ff').value;
+  const fi      = document.getElementById('fi').value;
+  const ff      = document.getElementById('ff').value;
 
   if (!empCode || !fi || !ff) {
     alert('Complete todos los campos');
@@ -176,68 +201,77 @@ btnConsultar.addEventListener('click', async () => {
   setExportEnabled(false);
 
   try {
-    // 1) Obtener datos del empleado y asistencias
+    // 1) Datos del empleado y umbrales
     const empleado = await window.api.obtenerEmpleadoDesdePersonnel(empCode);
-    const reporte  = await window.api.obtenerReporteAsistencia(empleado.id, fi, ff);  
+    const especial = window.catalogo?.porGafete(empCode)?.horarioEspecial;
+    const [corteEntH, corteEntM] = especial ? [7, 0] : [8, 0];
+    const [corteSalH, corteSalM] = especial ? [14, 30] : [15, 30];
 
-    // 2) Mapear asistencia diaria
+    // 2) Obtener reporte y mapear por fecha, asignando entrada/salida
+    const reporte = await window.api.obtenerReporteAsistencia(empleado.id, fi, ff);
     const mapa = Object.fromEntries(
       reporte.map(r => {
         const [dd, mm, yyyy] = r.att_date.split('-');
-        const fechaKey = `${dd}/${mm}/${yyyy}`;
-        return [fechaKey, {
-          dia     : fechaKey,
-          entrada : r.first_punch || '',
-          salida  : r.last_punch  || '',
-          horas   : r.total_time?.toFixed(1) || '',
+        const key = `${dd}/${mm}/${yyyy}`;
+
+        const fp = r.first_punch || '';
+        const lp = r.last_punch  || '';
+        let entrada = '', salida = '';
+
+        if (fp && lp && fp !== lp) {
+          // Dos marcas distintas → primera = entrada, segunda = salida
+          entrada = fp;
+          salida  = lp;
+        } else {
+          // Una sola marca (o dos iguales) → decidir por antes/después de mediodía
+          const sola = fp || lp;
+          if (sola) {
+            const [h, m] = sola.split(':').map(Number);
+            if (h < 12) {
+              entrada = sola;
+            } else {
+              salida = sola;
+            }
+          }
+        }
+
+        return [key, {
+          dia     : key,
+          entrada : entrada,
+          salida  : salida,
+          horas   : ''  // se calculará luego con permisos
         }];
       })
     );
 
-    // 3) Integrar permisos y recalcular entrada/salida/horas
+    // 3) Integrar permisos multi-día
     const permisos = await window.api.obtenerPermisos(empCode, fi, ff);
-
-    // 3) Integrar permisos multi-día y recalcular entrada/salida/horas
     permisos.forEach(p => {
-      // Descompón fecha y hora de inicio y fin
       const [startDateStr, startTime] = p.start_time.split(' ');
       const [endDateStr,   endTime]   = p.end_time.split(' ');
       const permisoIni = startTime.slice(0,5);
       const permisoFin = endTime.slice(0,5);
 
-      // Crea objetos Date para iterar día a día
       let current = new Date(`${startDateStr}T00:00:00`);
       const endDate = new Date(`${endDateStr}T00:00:00`);
-
-      // Recorre cada fecha del permiso
       while (current <= endDate) {
-        const dd = String(current.getDate()).padStart(2, '0');
-        const mm = String(current.getMonth() + 1).padStart(2, '0');
+        const dd   = String(current.getDate()).padStart(2,'0');
+        const mm   = String(current.getMonth()+1).padStart(2,'0');
         const yyyy = current.getFullYear();
-        const fechaKey = `${dd}/${mm}/${yyyy}`;
+        const key  = `${dd}/${mm}/${yyyy}`;
 
-        // Obtén el registro existente (si hubo asistencia)
-        const existente = mapa[fechaKey] || { entrada: '', salida: '', horas: '' };
+        const ex = mapa[key] || { entrada:'', salida:'', horas:'' };
+        const entradaFinal = ex.entrada && ex.entrada < permisoIni ? ex.entrada : permisoIni;
+        const salidaFinal  = ex.salida  && ex.salida  > permisoFin ? ex.salida  : permisoFin;
+        const horasCalc    = (entradaFinal && salidaFinal)
+                             ? calcularHoras(entradaFinal, salidaFinal)
+                             : '';
 
-        // Decide la entrada y salida finales comparando asistencia y permiso
-        const entradaFinal = existente.entrada && existente.entrada < permisoIni
-          ? existente.entrada
-          : permisoIni;
-        const salidaFinal = existente.salida && existente.salida > permisoFin
-          ? existente.salida
-          : permisoFin;
-
-        // Calcula horas solo si hay entrada y salida
-        const horasCalculadas = (entradaFinal && salidaFinal)
-          ? calcularHoras(entradaFinal, salidaFinal)
-          : '';
-
-        // Sobreescribe/añade el registro en el mapa
-        mapa[fechaKey] = {
-          dia     : fechaKey,
+        mapa[key] = {
+          dia     : key,
           entrada : entradaFinal,
           salida  : salidaFinal,
-          horas   : horasCalculadas,
+          horas   : horasCalc,
           permiso : {
             ini   : permisoIni,
             fin   : permisoFin,
@@ -246,79 +280,75 @@ btnConsultar.addEventListener('click', async () => {
           }
         };
 
-        // Avanza al siguiente día
         current.setDate(current.getDate() + 1);
       }
     });
 
-
-    // 4) Generar lista de días hábiles del mes
+    // 4) Filas hábiles del mes
     const [anio, mes] = fi.split('-').map(Number);
-    let filas = obtenerDiasHabilesMes(anio, mes).map(d =>
-      mapa[d] || { dia: d, entrada:'', salida:'', horas:'' }
+    let filas = obtenerDiasHabilesMes(anio, mes)
+      .map(d => mapa[d] || { dia:d, entrada:'', salida:'', horas:'' });
+
+    // 5) Borrar salida/horas si son idénticas
+    filas = filas.map(f =>
+      (f.salida && f.entrada === f.salida)
+        ? { ...f, salida:'', horas:'' }
+        : f
     );
 
-    // 5) VALIDACIÓN: si salida === entrada, borrar solo salida y horas
-    filas = filas.map(f => {
-      if (f.salida && f.entrada === f.salida) {
-        return { ...f, salida: '', horas: '' };
-      }
-      return f;
-    });
-
-    // 6) Renderizar y habilitar exportación
+    // 6) Render y guardar estado
+    window.__especial  = especial;
     render(filas);
     setExportEnabled(true);
+    window.__filasTabla = filas;
+    window.__empCode    = empCode;
+    window.__empNombre  = empleado.nombre || '';
+    window.__startDate  = fi;
+    window.__endDate    = ff;
 
-    // 7) Guardar estado para exportar
-    window.__filasTabla  = filas;
-    window.__empCode     = empCode;
-    window.__empNombre   = window.catalogo?.porGafete(empCode)?.nombre || '';
-    window.__startDate   = fi;
-    window.__endDate     = ff;
-
-    // 8) Cálculo y despliegue de “Tiempo Tardío” en UI
+    // 7) Cálculo de “Tiempo Tardío”
     const minutosAutorizados = 30;
-    let minutosTardiosDetectados = 0;
-    let diasSinMarcaje = 0;
+    let   minutosDetectados  = 0;
+    let   diasSinMarcaje     = 0;
     const hoy = new Date(); hoy.setHours(0,0,0,0);
 
     filas.forEach(f => {
       const [dd, mm, yyyy] = f.dia.split('/');
-      const fechaDia = new Date(Number(yyyy), Number(mm)-1, Number(dd));
+      const fechaDia = new Date(+yyyy, +mm-1, +dd);
       fechaDia.setHours(0,0,0,0);
       if (fechaDia >= hoy) return;
 
-      const tieneEntrada = !!f.entrada;
-      const tieneSalida  = !!f.salida;
-      if (!tieneEntrada && !tieneSalida) {
+      const { entrada, salida } = f;
+      const tieneE = !!entrada;
+      const tieneS = !!salida;
+
+      if (!tieneE && !tieneS) {
         diasSinMarcaje++;
-        minutosTardiosDetectados += 450;
+        minutosDetectados += 450;
         return;
       }
-      if (tieneEntrada) {
-        const [hE, mE] = f.entrada.split(':').map(Number);
-        if (hE > 8 || (hE===8 && mE>0))
-          minutosTardiosDetectados += (hE-8)*60 + mE;
+      if (tieneE) {
+        const [hE, mE] = entrada.split(':').map(Number);
+        if (hE > corteEntH || (hE === corteEntH && mE > corteEntM)) {
+          minutosDetectados += (hE - corteEntH)*60 + (mE - corteEntM);
+        }
       }
-      if (tieneSalida) {
-        if (!tieneEntrada || f.salida>f.entrada) {
-          const [hS, mS] = f.salida.split(':').map(Number);
-          if (hS < 15 || (hS===15 && mS<30))
-            minutosTardiosDetectados += (15-hS)*60 + (30-mS);
+      if (tieneS) {
+        const [hS, mS] = salida.split(':').map(Number);
+        if (hS < corteSalH || (hS === corteSalH && mS < corteSalM)) {
+          minutosDetectados += (corteSalH - hS)*60 + (corteSalM - mS);
         }
       }
     });
 
-    const minutosNetos = Math.max(minutosTardiosDetectados - minutosAutorizados, 0);
-    const tardiosDiv = document.getElementById('tardios');
-    tardiosDiv.innerHTML = `
+    const minutosNetos = Math.max(minutosDetectados - minutosAutorizados, 0);
+    document.getElementById('tardios').innerHTML = `
       <div class="p-4 bg-yellow-100 border border-yellow-400 rounded text-sm text-yellow-800">
         <p class="font-bold mb-2">Tiempo Tardío</p>
         <div class="grid grid-cols-2 gap-x-8">
           <p>Minutos autorizados: <strong>${minutosAutorizados}</strong></p>
           <p>Minutos netos:       <strong>${minutosNetos}</strong></p>
-          <p>Minutos detectados:  <strong>${minutosTardiosDetectados}</strong></p>
+          <p>Minutos detectados:  <strong>${minutosDetectados}</strong></p>
           <p>Días sin marcaje:     <strong>${diasSinMarcaje}</strong></p>
         </div>
       </div>
@@ -326,11 +356,10 @@ btnConsultar.addEventListener('click', async () => {
   }
   catch (err) {
     alert(err.message);
-    console.error('Error:', err);
+    console.error(err);
     setExportEnabled(false);
   }
 });
-
 
 
 /* ---------- 5. Precargar fechas y gafete ----------------------------- */
@@ -410,7 +439,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
   wrapper.appendChild(sel);
 });
-
 
 
 /* ---------- 6. Botón “Exportar” -------------------------------------- */
