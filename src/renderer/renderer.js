@@ -178,7 +178,7 @@ btnConsultar.addEventListener('click', async () => {
   try {
     // 1) Obtener datos del empleado y asistencias
     const empleado = await window.api.obtenerEmpleadoDesdePersonnel(empCode);
-    const reporte  = await window.api.obtenerReporteAsistencia(empleado.id, fi, ff);
+    const reporte  = await window.api.obtenerReporteAsistencia(empleado.id, fi, ff);  
 
     // 2) Mapear asistencia diaria
     const mapa = Object.fromEntries(
@@ -196,40 +196,61 @@ btnConsultar.addEventListener('click', async () => {
 
     // 3) Integrar permisos y recalcular entrada/salida/horas
     const permisos = await window.api.obtenerPermisos(empCode, fi, ff);
-    permisos.forEach(p => {
-      const [startDate, startTime] = p.start_time.split(' ');
-      const [endDate,   endTime]   = p.end_time.split(' ');
-      const [yyyy, mm, dd]         = startDate.split('-');
-      const fechaKey = `${dd}/${mm}/${yyyy}`;
 
+    // 3) Integrar permisos multi-día y recalcular entrada/salida/horas
+    permisos.forEach(p => {
+      // Descompón fecha y hora de inicio y fin
+      const [startDateStr, startTime] = p.start_time.split(' ');
+      const [endDateStr,   endTime]   = p.end_time.split(' ');
       const permisoIni = startTime.slice(0,5);
       const permisoFin = endTime.slice(0,5);
-      const existente = mapa[fechaKey] ?? { entrada:'', salida:'', horas:'' };
 
-      const entradaFinal = (existente.entrada && existente.entrada < permisoIni)
-        ? existente.entrada
-        : permisoIni;
-      const salidaFinal = (existente.salida && existente.salida > permisoFin)
-        ? existente.salida
-        : permisoFin;
+      // Crea objetos Date para iterar día a día
+      let current = new Date(`${startDateStr}T00:00:00`);
+      const endDate = new Date(`${endDateStr}T00:00:00`);
 
-      const horasCalculadas = (entradaFinal && salidaFinal)
-        ? calcularHoras(entradaFinal, salidaFinal)
-        : '';
+      // Recorre cada fecha del permiso
+      while (current <= endDate) {
+        const dd = String(current.getDate()).padStart(2, '0');
+        const mm = String(current.getMonth() + 1).padStart(2, '0');
+        const yyyy = current.getFullYear();
+        const fechaKey = `${dd}/${mm}/${yyyy}`;
 
-      mapa[fechaKey] = {
-        dia     : fechaKey,
-        entrada : entradaFinal,
-        salida  : salidaFinal,
-        horas   : horasCalculadas,
-        permiso : {
-          ini   : permisoIni,
-          fin   : permisoFin,
-          cat   : p.category,
-          reason: p.apply_reason.trim()
-        }
-      };
+        // Obtén el registro existente (si hubo asistencia)
+        const existente = mapa[fechaKey] || { entrada: '', salida: '', horas: '' };
+
+        // Decide la entrada y salida finales comparando asistencia y permiso
+        const entradaFinal = existente.entrada && existente.entrada < permisoIni
+          ? existente.entrada
+          : permisoIni;
+        const salidaFinal = existente.salida && existente.salida > permisoFin
+          ? existente.salida
+          : permisoFin;
+
+        // Calcula horas solo si hay entrada y salida
+        const horasCalculadas = (entradaFinal && salidaFinal)
+          ? calcularHoras(entradaFinal, salidaFinal)
+          : '';
+
+        // Sobreescribe/añade el registro en el mapa
+        mapa[fechaKey] = {
+          dia     : fechaKey,
+          entrada : entradaFinal,
+          salida  : salidaFinal,
+          horas   : horasCalculadas,
+          permiso : {
+            ini   : permisoIni,
+            fin   : permisoFin,
+            cat   : p.category,
+            reason: p.apply_reason.trim()
+          }
+        };
+
+        // Avanza al siguiente día
+        current.setDate(current.getDate() + 1);
+      }
     });
+
 
     // 4) Generar lista de días hábiles del mes
     const [anio, mes] = fi.split('-').map(Number);
@@ -456,7 +477,7 @@ btnExport.addEventListener('click', () => {
       { text: 'Fecha',           style: 'th' },
       { text: 'Entrada',         style: 'th' },
       { text: 'Salida',          style: 'th' },
-      { text: 'Horas / Permiso', style: 'th' }
+      { text: 'Permiso / Horas', style: 'th' }
     ],
     ...filas.map(f => {
       const permiso = f.permiso;
