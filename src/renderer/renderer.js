@@ -252,6 +252,8 @@ btnConsultar.addEventListener('click', async () => {
 
     // 3) Integrar permisos multi-día
     const permisos = await window.api.obtenerPermisos(empCode, fi, ff);
+    console.log(permisos);
+    
     permisos.forEach(p => {
       const [startDateStr, startTime] = p.start_time.split(' ');
       const [endDateStr,   endTime]   = p.end_time.split(' ');

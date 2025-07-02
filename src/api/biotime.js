@@ -71,22 +71,31 @@ async function ensureSession(config) {
 }
 
 
-async function obtenerPermisos(config, empCode, ini, fin, page=1, limit=27) {
+async function obtenerPermisos(config, empCode, ini, fin, page = 1, limit = 27) {
   await ensureSession(config);
+
+  // Sumar 5 días a la fecha `fin`
+  const fechaFin = new Date(fin);
+  fechaFin.setDate(fechaFin.getDate() + 5);
+  const finAjustado = fechaFin.toISOString().split('T')[0]; // formato YYYY-MM-DD
+
   const url = new URL('/att/leave/table/', config.API_URL);
   url.searchParams.set('_p1_employee__emp_code__exact', empCode);
   url.searchParams.set('_p1_start_time__gte', ini);
-  url.searchParams.set('_p1_start_time__lt', fin);
+  url.searchParams.set('_p1_start_time__lt', finAjustado);
   url.searchParams.set('page', page);
   url.searchParams.set('limit', limit);
+
   const res = await fetch(url.href);
-  if (res.status===302) {
+  if (res.status === 302) {
     sessionExpireAt = 0;
     return obtenerPermisos(config, empCode, ini, fin, page, limit);
   }
+
   if (!res.ok) throw new Error(`Permisos ${res.status}`);
   return (await res.json()).data;
 }
+
 
 async function obtenerMarcaciones(config, empCode, start, end) {
   const token = await ensureToken(config);
