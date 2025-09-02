@@ -81,21 +81,22 @@ exports.infoEmpleados = [
   { gafete: 25440, nombre: 'EDWIN ADOLFO SERRANO LEMUS',                  puesto: 'PILOTO I',                              usuario: 'ESERRANO',        horarioEspecial: false },
   { gafete: 25341, nombre: 'JOSÉ ÁNGEL REYES MORALES',                    puesto: 'ANALISTA III',                          usuario: 'JAREYES',         horarioEspecial: false },
   { gafete: 27066, nombre: 'CARLOS HUMBERTO HERNANDEZ SILVA',             puesto: 'PILOTO I',                              usuario: 'CHHERNANDEZ',     horarioEspecial: false },
-  { gafete: 31623, nombre: 'JOSE ANTONIO MIRANDA CORZO',                  puesto: 'CONSERJE-MENSAJERO',                    usuario: 'JAMIRANDA',       horarioEspecial: true }
+  { gafete: 31623, nombre: 'JOSE ANTONIO MIRANDA CORZO',                  puesto: 'CONSERJE-MENSAJERO',                    usuario: 'JAMIRANDA',       horarioEspecial: true },
+  { gafete: 33936, nombre: 'MELVIN WILFREDO ESTUPE MALDONADO',            puesto: 'SUPERVISOR DE AUDITORÍA',               usuario: 'MESTUPE',       horarioEspecial: false }
 ];
 
 
 
 exports.pools = {
-  JAJCAN: ['DPALMA', 'WAVELASQUEZ', 'MFESTRADA', 'JAJCAN'],
+  JAJCAN: ['WAVELASQUEZ', 'MFESTRADA', 'JAJCAN'],
   ALMARROQUINT: [
     'RCALITO', 'MAMADO', 'HASANCHEZ', 'ESERRANO',
     'PEVELASQUEZ', 'MDVELASQUEZ', 'RSRODRIGUEZ', 'YNPEREZ',
     'ALMARROQUINT', 'CHHERNANDEZ', 'JAMIRANDA'
   ],
-  RNAVASSI: [
+  MESTUPE: [
     'ROESCOBAR', 'CTERCERO', 'ECALVILLO', 'ABFRANCO',
-    'SANZOATEGUI', 'RNAVASSI', 'RVALLADARES', 'HESTRADA'
+    'SANZOATEGUI', 'RVALLADARES', 'HESTRADA'
   ],
   RRLOPEZ: [
     'JEORDONEZ', 'SCGONZALEZ', 'OBERMUDEZ', 'RRLOPEZ', 'LEFLORES'
@@ -104,5 +105,6 @@ exports.pools = {
     'WBAILON', 'SMOROZCOM', 'SJMENA', 'JAREYES',
     'DDEPAZM', 'WFLOPEZ', 'CCRAMIREZ', 'YMENDEZ'
   ],
-   CTSANCHEZ: exports.infoEmpleados.map(e => e.usuario.toUpperCase())
+  RNAVASSI: exports.infoEmpleados.map(e => e.usuario.toUpperCase()),
+  CTSANCHEZ: exports.infoEmpleados.map(e => e.usuario.toUpperCase())
 };
