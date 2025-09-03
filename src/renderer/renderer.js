@@ -198,6 +198,7 @@ function calcularHoras(ini, fin) {
 
 /* ---------- 4. Botón “Consultar” ------------------------------------- */
 btnConsultar.addEventListener('click', async () => {
+
   const empCode = String(window.__empCode ?? '').trim();
   const fi      = document.getElementById('fi').value;
   const ff      = document.getElementById('ff').value;
@@ -212,6 +213,8 @@ btnConsultar.addEventListener('click', async () => {
   try {
     // 1) Datos del empleado y umbrales dinámicos
     const empleado = await window.api.obtenerEmpleadoDesdePersonnel(empCode);
+    console.log('empleado:', JSON.stringify(empleado, null, 2));
+
     const especial = window.catalogo?.porGafete(empCode)?.horarioEspecial;
     const [corteEntH, corteEntM] = especial ? [7, 0] : [8, 0];
     const [corteSalH, corteSalM] = especial ? [14, 30] : [15, 30];
@@ -223,9 +226,11 @@ btnConsultar.addEventListener('click', async () => {
 
     // 2) Obtener reporte y mapear por fecha, asignando entrada/salida
     const reporte = await window.api.obtenerReporteAsistencia(empleado.id, fi, ff);
+    console.log('reporte:', JSON.stringify(reporte, null, 2));
+
     const mapa = Object.fromEntries(
       reporte.map(r => {
-        const [dd, mm, yyyy] = r.att_date.split('-');
+        const [yyyy, mm, dd] = r.att_date.split('-');
         const key = `${dd}/${mm}/${yyyy}`;
 
         const fp = r.first_punch || '';
@@ -380,7 +385,11 @@ btnConsultar.addEventListener('click', async () => {
 
 
 /* ---------- 5. Precargar fechas y gafete ----------------------------- */
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
+
+
+
+
   const fi = document.getElementById('fi');
   const ff = document.getElementById('ff');
   const hoy = new Date();
@@ -395,66 +404,64 @@ document.addEventListener('DOMContentLoaded', () => {
   // Limpia el wrapper
   wrapper.innerHTML = '';
 
-  // Creamos siempre un <select>
-  const sel = document.createElement('select');
-  sel.id        = 'empSelect';
-  sel.className = 'border rounded px-3 py-2 bg-white w-full';
+  
+  try {
+  // 4.1) Con defaults (page=1, limit=29, dept=2, company=1)
+  // Empleados consultados desde la API (ya están arriba)
+const empleados = await window.api.obtenerEmpleados()
 
-  if (poolInfo && poolInfo.length > 0) {
-    // ——— Usuario del pool: opción por defecto + listado del pool ———
-    const opt = new Option('Seleccione un empleado', '');
-    opt.disabled = true;
-    opt.selected = true;
-    sel.appendChild(opt);
+// Ordenar alfabéticamente por nombre completo
+empleados.sort((a, b) => {
+  const nombreA = `${a.first_name} ${a.last_name}`.toLowerCase()
+  const nombreB = `${b.first_name} ${b.last_name}`.toLowerCase()
+  return nombreA.localeCompare(nombreB, 'es', { sensitivity: 'base' })
+})
 
-    // Ordenar alfabéticamente por nombre antes de construir el <select>
-    poolInfo
-      .sort((a, b) => a.nombre.localeCompare(b.nombre, 'es', { sensitivity: 'base' }))
-      .forEach(info => {
-        const label = `${info.nombre} (${info.gafete}) — ${info.usuario}`;
-        sel.appendChild(new Option(label, info.gafete));
-      });
+// Limpia el wrapper y crea <select>
+wrapper.innerHTML = ''
+const sel = document.createElement('select')
+sel.id = 'empSelect'
+sel.className = 'border rounded px-3 py-2 bg-white w-full'
 
-    sel.addEventListener('change', () => {
-      window.__empCode   = sel.value;
-      window.__empNombre = sel.options[sel.selectedIndex].text.split(' (')[0];
-      btnConsultar.disabled = false;
-      btnConsultar.classList.remove('opacity-40', 'cursor-not-allowed');
+// Opción por defecto
+const optDefault = new Option('Seleccione un empleado', '')
+optDefault.disabled = true
+optDefault.selected = true
+sel.appendChild(optDefault)
 
-      // Limpia la tabla
-      document.getElementById('tbody').innerHTML = '';
-      document.getElementById('tardios').innerHTML = '';
-      setExportEnabled(false);
-    });
+// Llenar con los datos de empleados
+empleados.forEach(emp => {
+  const label = `${emp.first_name} ${emp.last_name} (${emp.emp_code}) — ${emp.email}`
+  sel.appendChild(new Option(label, emp.id))
+})
 
-    btnConsultar.disabled = true;
-    btnConsultar.classList.add('opacity-40', 'cursor-not-allowed');
+// Evento change
+sel.addEventListener('change', () => {
+  const selected = empleados.find(e => e.id == sel.value)
 
-  } else if (miInfo) {
-    // ——— Usuario normal: solo una opción, select deshabilitado ———
-    const label = `${miInfo.nombre} (${miInfo.gafete}) — ${miInfo.usuario}`;
-    sel.appendChild(new Option(label, miInfo.gafete));
-    sel.disabled = true;
+  window.__empCode   = selected.emp_code
+  window.__empNombre = `${selected.first_name} ${selected.last_name}`
 
-    // Preseleccionamos sus datos globales
-    window.__empCode   = miInfo.gafete;
-    window.__empNombre = miInfo.nombre;
+  btnConsultar.disabled = false
+  btnConsultar.classList.remove('opacity-40', 'cursor-not-allowed')
 
-    btnConsultar.disabled = false;
-    btnConsultar.classList.remove('opacity-40', 'cursor-not-allowed');
-  } else {
-    // ——— Usuario no registrado ———
-    const opt = new Option('Usuario no registrado', '');
-    opt.disabled = true;
-    opt.selected = true;
-    sel.appendChild(opt);
-    sel.disabled = true;
+  document.getElementById('tbody').innerHTML = ''
+  document.getElementById('tardios').innerHTML = ''
+  setExportEnabled(false)
+})
 
-    btnConsultar.disabled = true;
-    btnConsultar.classList.add('opacity-40', 'cursor-not-allowed');
-  }
+// Estado inicial del botón
+btnConsultar.disabled = true
+btnConsultar.classList.add('opacity-40', 'cursor-not-allowed')
 
-  wrapper.appendChild(sel);
+// Agregar al DOM
+wrapper.appendChild(sel)
+
+  
+} catch (err) {
+  console.error('Error empleados:', err?.message || err)
+}
+
 });
 
 

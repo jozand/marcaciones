@@ -20,6 +20,8 @@ async function ensureToken(config) {
   });
   if (!res.ok) throw new Error(`JWT auth failed: ${res.status}`);
   const { token } = await res.json();
+  console.log('token', token);
+  
   tokenCache = token;
   return token;
 }
@@ -113,6 +115,7 @@ async function obtenerMarcaciones(config, empCode, start, end) {
 async function obtenerEmpleadoDesdePersonnel(config, empCode) {
   const token = await ensureToken(config);
   const url = `${config.API_URL}/personnel/api/employee/?emp_code=${empCode}`;
+  console.log(url);
   const res = await fetch(url, {
     headers: { Authorization: `JWT ${token}` }
   });
@@ -125,10 +128,15 @@ async function obtenerEmpleadoDesdePersonnel(config, empCode) {
 async function obtenerReporteAsistencia(config, employeeId, startDate, endDate) {
   const token = await ensureToken(config);
   const url = `${config.API_URL}/att/api/firstLastReport/`
-    + `?employees=${employeeId}`
-    + `&start_date=${startDate}`
-    + `&end_date=${endDate}`
-    + `&page=1&page_size=100&time_table=0&departments=-1`;
+  + `?page=1&page_size=20`
+  + `&start_date=${startDate}`
+  + `&end_date=${endDate}`
+  + `&time_table=0`
+  + `&departments=2`
+  + `&employees=${employeeId}`;
+
+  console.log(url);
+
   const res = await fetch(url, {
     headers: { Authorization: `JWT ${token}` }
   });
@@ -136,11 +144,45 @@ async function obtenerReporteAsistencia(config, employeeId, startDate, endDate) 
   return (await res.json()).data;
 }
 
+async function obtenerEmpleados(config, opts = {}) {
+  await ensureSession(config);
+
+  const {
+    page = 1,
+    limit = 29,
+    dept_code = 2,
+    company_id = 1,
+  } = opts;
+
+  const url = new URL('/personnel/employee/table/', config.API_URL);
+  url.searchParams.set('page', String(page));
+  url.searchParams.set('limit', String(limit));
+  url.searchParams.set('_p1_department__dept_code__exact', String(dept_code));
+  url.searchParams.set('_p1_company__id__exact', String(company_id));
+
+  console.log(url.href); // ✅ solo si deseas depuración
+
+  const res = await fetch(url.href);
+
+  if (res.status === 302) {
+    sessionExpireAt = 0;
+    return obtenerEmpleados(config, opts); // 🔁 reintenta si sesión caducó
+  }
+
+  if (!res.ok) throw new Error(`Empleados ${res.status}`);
+
+  const json = await res.json();
+  return json.data;
+}
+
+
+
 module.exports = {
   ensureToken,
   ensureSession,
   obtenerPermisos,
   obtenerMarcaciones,
   obtenerEmpleadoDesdePersonnel,
-  obtenerReporteAsistencia
+  obtenerReporteAsistencia,
+  obtenerEmpleados
 };

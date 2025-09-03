@@ -47,7 +47,8 @@ contextBridge.exposeInMainWorld('api', {
   obtenerMarcaciones          : (e,i,f)          => ipcRenderer.invoke('bt:marc',    e,i,f),
   obtenerEmpleadoDesdePersonnel: e               => ipcRenderer.invoke('bt:empleado',e),
   obtenerReporteAsistencia    : (id,i,f)         => ipcRenderer.invoke('bt:reporte', id,i,f),
-  obtenerPermisos             : (e,i,f,p=1,l=27)=> ipcRenderer.invoke('bt:permisos',e,i,f,p,l)
+  obtenerPermisos             : (e,i,f,p=1,l=27)=> ipcRenderer.invoke('bt:permisos',e,i,f,p,l),
+  obtenerEmpleados: (opts = {}) => ipcRenderer.invoke('bt:empleados', opts)
 });
 
 /* ---------------------------------------------------------------

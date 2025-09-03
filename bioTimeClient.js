@@ -71,3 +71,6 @@ ipcMain.handle('bt:reporte', (_e, id, ini, fin) =>
 ipcMain.handle('bt:permisos', (_e, emp, ini, fin, p = 1, l = 27) =>
   bt.obtenerPermisos(cfg, emp, ini, fin, p, l)
 );
+
+ipcMain.handle('bt:empleados', (_e, opts = {}) => bt.obtenerEmpleados(cfg, opts))
+

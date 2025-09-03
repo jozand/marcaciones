@@ -38,7 +38,8 @@ exports.usuariosGafete = {
   ABFRANCO: "21261",
   SANZOATEGUI: "28344",
   CHHERNANDEZ: "27066",
-  JAMIRANDA: "31623"
+  JAMIRANDA: "31623",
+  MGONZALEZ: "33936"
 };
 
 exports.infoEmpleados = [
@@ -82,13 +83,14 @@ exports.infoEmpleados = [
   { gafete: 25341, nombre: 'JOSÉ ÁNGEL REYES MORALES',                    puesto: 'ANALISTA III',                          usuario: 'JAREYES',         horarioEspecial: false },
   { gafete: 27066, nombre: 'CARLOS HUMBERTO HERNANDEZ SILVA',             puesto: 'PILOTO I',                              usuario: 'CHHERNANDEZ',     horarioEspecial: false },
   { gafete: 31623, nombre: 'JOSE ANTONIO MIRANDA CORZO',                  puesto: 'CONSERJE-MENSAJERO',                    usuario: 'JAMIRANDA',       horarioEspecial: true },
-  { gafete: 33936, nombre: 'MELVIN WILFREDO ESTUPE MALDONADO',            puesto: 'SUPERVISOR DE AUDITORÍA',               usuario: 'MESTUPE',       horarioEspecial: false }
+  { gafete: 33936, nombre: 'MELVIN WILFREDO ESTUPE MALDONADO',            puesto: 'SUPERVISOR DE AUDITORÍA',               usuario: 'MESTUPE',       horarioEspecial: false },
+  { gafete: 33395, nombre: 'María Fernanda González Monzón',            puesto: 'Oficinista',               usuario: 'MGONZALEZ',       horarioEspecial: false }
 ];
 
 
 
 exports.pools = {
-  JAJCAN: ['WAVELASQUEZ', 'MFESTRADA', 'JAJCAN'],
+  JAJCAN: ['WAVELASQUEZ', 'MFESTRADA', 'JAJCAN','MGONZALEZ'],
   ALMARROQUINT: [
     'RCALITO', 'MAMADO', 'HASANCHEZ', 'ESERRANO',
     'PEVELASQUEZ', 'MDVELASQUEZ', 'RSRODRIGUEZ', 'YNPEREZ',
