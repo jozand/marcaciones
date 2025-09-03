@@ -175,6 +175,26 @@ async function obtenerEmpleados(config, opts = {}) {
   return json.data;
 }
 
+async function obtenerReporteTodos(config, startDate, endDate, dept = 2) {
+  const token = await ensureToken(config);
+
+  const url = new URL('/att/api/firstLastReport/', config.API_URL);
+  url.searchParams.set('page', '1');
+  url.searchParams.set('page_size', '2000'); // puedes ajustar el límite si quieres más empleados
+  url.searchParams.set('start_date', startDate);
+  url.searchParams.set('end_date', endDate);
+  url.searchParams.set('time_table', '0');
+  url.searchParams.set('departments', String(dept));
+  url.searchParams.set('employees', '-1'); // <- para todos los empleados del depto
+
+  const res = await fetch(url.href, {
+    headers: { Authorization: `JWT ${token}` }
+  });
+
+  if (!res.ok) throw new Error(`Reporte global ${res.status}`);
+  const json = await res.json();
+  return json.data;
+}
 
 
 module.exports = {
@@ -184,5 +204,6 @@ module.exports = {
   obtenerMarcaciones,
   obtenerEmpleadoDesdePersonnel,
   obtenerReporteAsistencia,
-  obtenerEmpleados
+  obtenerEmpleados,
+  obtenerReporteTodos
 };

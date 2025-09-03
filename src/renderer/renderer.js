@@ -7,6 +7,8 @@ const circle     = document.getElementById('circle');
 const statusSpan = document.getElementById('status');
 const btnExport  = document.getElementById('btnExport');
 const btnConsultar  = document.getElementById('btnConsultar');
+const btnExportTodos = document.getElementById('btnExportTodos');
+
 let currentPdfUrl = null;
 
 function setExportEnabled(enabled) {
@@ -171,7 +173,6 @@ function render(filas) {
   // Guardar para exportación
   window.__filasTabla = filas;
 }
-
 
 /* ---------- 3. Utilidades de fechas ---------------------------------- */
 function obtenerDiasHabilesMes(anio, mes) {
@@ -657,3 +658,155 @@ btnExport.addEventListener('click', () => {
   window.pdfMake.createPdf(docDefinition).open();
 });
 
+
+function exportarExcelMarcaciones(agrupado, fechaInicio, fechaFin) {
+  const filas = [];
+
+  // 1. Encabezado general
+  filas.push({
+    Gafete: 'Gafete',
+    Nombre: 'Nombre',
+    Fecha: 'Fecha',
+    Entrada: 'Entrada',
+    Salida: 'Salida',
+    Horas: 'Horas'
+  });
+
+  // 2. Filas por empleado
+  for (const [empCode, { nombre, datos }] of Object.entries(agrupado)) {
+    datos.forEach(r => {
+      let entrada = r.first_punch || '';
+      let salida  = r.last_punch  || '';
+
+      // Si entrada y salida son iguales → limpiar salida
+      if (entrada && salida && entrada === salida) {
+        salida = '';
+      }
+
+      const horas = calcularHoras(entrada, salida);
+      const [yyyy, mm, dd] = r.att_date.split('-');
+      const fechaFormateada = `${dd}/${mm}/${yyyy}`;
+
+      filas.push({
+        Gafete: empCode,
+        Nombre: nombre,
+        Fecha: fechaFormateada,
+        Entrada: entrada,
+        Salida: salida,
+        Horas: horas
+      });
+    });
+
+    // 3. Fila vacía entre empleados
+    filas.push({ Gafete: '', Nombre: '', Fecha: '', Entrada: '', Salida: '', Horas: '' });
+  }
+
+  // 4. Crear hoja y libro
+  const ws = XLSX.utils.json_to_sheet(filas, { skipHeader: true });
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Marcaciones');
+
+  // 5. Estilo de encabezado
+  const range = XLSX.utils.decode_range(ws['!ref']);
+  for (let R = range.s.r; R <= range.e.r; ++R) {
+    const fila = filas[R];
+    const isEncabezado = fila?.Gafete === 'Gafete';
+
+    for (let C = range.s.c; C <= range.e.c; ++C) {
+      const cellRef = XLSX.utils.encode_cell({ r: R, c: C });
+      if (!ws[cellRef]) continue;
+
+      if (isEncabezado) {
+        ws[cellRef].s = {
+          font: { bold: true, color: { rgb: '000000' } },
+          fill: { fgColor: { rgb: 'D9E1F2' } },
+          border: {
+            top:    { style: 'thin', color: { rgb: '999999' } },
+            bottom: { style: 'thin', color: { rgb: '999999' } },
+            left:   { style: 'thin', color: { rgb: '999999' } },
+            right:  { style: 'thin', color: { rgb: '999999' } }
+          },
+          alignment: { horizontal: 'center' }
+        };
+      }
+    }
+  }
+
+  // 6. Ajustes de columnas
+  ws['!cols'] = [
+    { wch: 12 },
+    { wch: 30 },
+    { wch: 15 },
+    { wch: 10 },
+    { wch: 10 },
+    { wch: 10 }
+  ];
+
+  // 7. Congelar encabezado
+  ws['!freeze'] = { xSplit: 0, ySplit: 1 };
+
+  // 8. Guardar archivo
+  const nombreArchivo = `Marcaciones_Todos_${fechaInicio.replace(/-/g, '')}_al_${fechaFin.replace(/-/g, '')}.xlsx`;
+  XLSX.writeFile(wb, nombreArchivo, { cellStyles: true });
+}
+
+
+
+btnExportTodos.addEventListener('click', async () => {
+  
+  const fi = document.getElementById('fi').value;
+  const ff = document.getElementById('ff').value;
+
+  try {
+    const data = await window.api.obtenerReporteTodos(fi, ff);
+    console.log('🔍 Reporte de todos los empleados:', data);
+
+    if (!Array.isArray(data) || data.length === 0) {
+      alert('No se encontraron registros de asistencia.');
+      return;
+    }
+
+    const agrupado = {};
+    for (const r of data) {
+      if (!agrupado[r.emp_code]) {
+        agrupado[r.emp_code] = {
+          nombre: `${r.first_name} ${r.last_name}`,
+          datos: []
+        };
+      }
+      agrupado[r.emp_code].datos.push(r);
+    }
+
+    const primer = Object.values(agrupado)[0];
+    console.log('🧪 Mostrando al primer empleado:', primer.nombre);
+
+    const mapa = Object.fromEntries(
+      primer.datos.map(r => {
+        const [yyyy, mm, dd] = r.att_date.split('-');
+        const key = `${dd}/${mm}/${yyyy}`;
+        const entrada = r.first_punch || '';
+        const salida  = r.last_punch  || '';
+        return [key, { dia: key, entrada, salida, horas: calcularHoras(entrada, salida) }];
+      })
+    );
+
+    const [anio, mes] = fi.split('-').map(Number);
+    const filas = obtenerDiasHabilesMes(anio, mes)
+      .map(d => mapa[d] || { dia: d, entrada: '', salida: '', horas: '' });
+
+    //render(filas);
+    //alert(`Se encontraron ${Object.keys(agrupado).length} empleados. Mostrando a: ${primer.nombre}`);
+
+    window.__reporteGlobal = agrupado;
+
+    document.getElementById('tbody').innerHTML = '';
+    document.getElementById('tardios').innerHTML = '';
+
+    // 👉 Exportar a Excel
+    exportarExcelMarcaciones(agrupado, fi, ff);
+
+  } catch (err) {
+    console.error('❌ Error al obtener reporte global:', err);
+    alert('No se pudo obtener el reporte global');
+  }
+});

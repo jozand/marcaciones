@@ -3,7 +3,7 @@ const path = require('path');
 require('./bioTimeClient.js');
 
 // 🔐 Lista de usuarios autorizados
-const allowedUsers = ['JAJCAN', 'RDALVARADO','ESTUARDO.CARDENAS'];  // puedes usar nombres en mayúsculas
+const allowedUsers = ['RDALVARADO','ESTUARDO.CARDENAS'];  // puedes usar nombres en mayúsculas
 
 // 👤 Detectar usuario del sistema
 function getSystemUser() {
