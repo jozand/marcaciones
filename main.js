@@ -3,7 +3,7 @@ const path = require('path');
 require('./bioTimeClient.js');
 
 // 🔐 Lista de usuarios autorizados
-const allowedUsers = ['RDALVARADO','ESTUARDO.CARDENAS'];  // puedes usar nombres en mayúsculas
+const allowedUsers = ['MFGONZALEZM','JAJCAN','RDALVARADO','ESTUARDO.CARDENAS'];  // puedes usar nombres en mayúsculas
 
 // 👤 Detectar usuario del sistema
 function getSystemUser() {
@@ -39,9 +39,9 @@ function createWindow() {
     }
   });
 
-   win.maximize();
-   win.removeMenu();
-  win.loadFile(path.join(__dirname, 'src/views/index.html'));
+    win.maximize();
+    //win.removeMenu();
+    win.loadFile(path.join(__dirname, 'src/views/index.html'));
 }
 
 // 🟢 Iniciar app

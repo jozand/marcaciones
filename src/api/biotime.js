@@ -128,11 +128,11 @@ async function obtenerEmpleadoDesdePersonnel(config, empCode) {
 async function obtenerReporteAsistencia(config, employeeId, startDate, endDate) {
   const token = await ensureToken(config);
   const url = `${config.API_URL}/att/api/firstLastReport/`
-  + `?page=1&page_size=20`
+  + `?page=1&page_size=50`
   + `&start_date=${startDate}`
   + `&end_date=${endDate}`
   + `&time_table=0`
-  + `&departments=2`
+  + `&departments=-1`
   + `&employees=${employeeId}`;
 
   console.log(url);
