@@ -231,28 +231,49 @@ btnConsultar.addEventListener('click', async () => {
 
     const mapa = Object.fromEntries(
       reporte.map(r => {
-        const [yyyy, mm, dd] = r.att_date.split('-');
+
+        // La API devuelve DD-MM-YYYY
+        const [dd, mm, yyyy] = r.att_date.split('-');
         const key = `${dd}/${mm}/${yyyy}`;
 
         const fp = r.first_punch || '';
         const lp = r.last_punch  || '';
-        let entrada = '', salida = '';
+
+        let entrada = '';
+        let salida  = '';
 
         if (fp && lp && fp !== lp) {
-          // Dos marcas distintas → primera = entrada, segunda = salida
+
+          // Dos marcas distintas
           entrada = fp;
           salida  = lp;
+
         } else {
-          // Una sola marca (o idénticas) → decidir por antes/después de mediodía
+
+          // Una sola marca o ambas iguales
           const sola = fp || lp;
+
           if (sola) {
+
             const [h] = sola.split(':').map(Number);
-            if (h < 12) entrada = sola;
-            else         salida  = sola;
+
+            if (h < 12) {
+              entrada = sola;
+            } else {
+              salida = sola;
+            }
           }
         }
 
-        return [key, { dia:key, entrada, salida, horas:'' }];
+        return [
+          key,
+          {
+            dia: key,
+            entrada,
+            salida,
+            horas: ''
+          }
+        ];
       })
     );
 

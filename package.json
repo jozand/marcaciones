@@ -6,7 +6,7 @@
     "start": "electron .",
     "tw:build": "node_modules\\.bin\\tailwindcss.cmd -i src/styles/input.css -o src/styles/output.css --minify",
     "encrypt-config": "node encrypt-config.js",
-    "build": "npm run tw:build && npm run encrypt-config && electron-packager . MarcajesApp --platform=win32 --arch=x64 --out=dist --overwrite --asar --icon=assets/icono.ico --win32metadata.CompanyName='Organismo Judicial' --win32metadata.OriginalFilename='MarcajesApp.exe' && copy config.enc dist\\MarcajesApp-win32-x64\\config.enc"
+    "build": "npm run encrypt-config && electron-packager . MarcajesApp --platform=win32 --arch=x64 --out=dist --overwrite --asar --icon=assets/icono.ico --win32metadata.CompanyName='Organismo Judicial' --win32metadata.OriginalFilename='MarcajesApp.exe' && copy config.enc dist\\MarcajesApp-win32-x64\\config.enc"
   },
   "keywords": [],
   "author": "",

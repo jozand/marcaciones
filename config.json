@@ -1,5 +1,5 @@
 {
-  "API_URL": "http://10.101.102.176:8081",
+  "API_URL": "http://10.101.100.71:8095",
   "API_USER": "USERAPP",
   "API_PASS": "Usera123"
 }
